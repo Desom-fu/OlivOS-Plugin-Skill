@@ -19,11 +19,13 @@
 
 ## 论坛发布链接
 
-https://forum.olivos.run/d/917-olivos-skill
+[OlivOS 论坛发布帖](https://forum.olivos.run/d/917-olivos-skill)
 
 ## 下载
 
-release（占位）
+最新自动打包 release：
+
+[olivos-plugin-developer-latest](https://github.com/Desom-fu/OlivOS-Plugin-Skill/releases/tag/olivos-plugin-developer-latest)
 
 ### 官方文档快照
 

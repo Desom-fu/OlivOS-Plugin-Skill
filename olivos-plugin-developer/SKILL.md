@@ -41,7 +41,7 @@ When implementing a plugin, **read the selected template's files first**, then a
 
 Use online documentation only when refreshing the bundled references or when the bundled files are missing/stale:
 
-- Official docs: https://doc.olivos.wiki/DevPlugin/
+- Official docs: https://github.com/OlivOS-Team/OlivOSDoc/blob/main/docs/DevPlugin/
 - Official native template: https://github.com/OlivOS-Team/OlivOSPluginTemplate
 - Light plugin template: https://github.com/0Desom0/Desom-OlivaDice-Plugin/tree/main/示例/LightPluginTemplate
 - Rule plugin template: https://github.com/0Desom0/Desom-OlivaDice-Plugin/tree/main/示例/Desom's_OVO_PluginTemplate

@@ -1,0 +1,66 @@
+name: Package olivos-plugin-developer
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'olivos-plugin-developer/**'
+      - 'scripts/package_skill.py'
+      - '.github/workflows/release-skill.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: olivos-plugin-developer-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Package skill
+        run: python scripts/package_skill.py --skill-dir olivos-plugin-developer --out-dir dist
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: olivos-plugin-developer
+          path: |
+            dist/olivos-plugin-developer.zip
+            dist/olivos-plugin-developer.zip.sha256
+
+      - name: Publish rolling GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: olivos-plugin-developer-latest
+          RELEASE_TITLE: olivos-plugin-developer latest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+          git push -f origin "refs/tags/$RELEASE_TAG"
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md
+          else
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md --latest
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            dist/olivos-plugin-developer.zip \
+            dist/olivos-plugin-developer.zip.sha256 \
+            --clobber

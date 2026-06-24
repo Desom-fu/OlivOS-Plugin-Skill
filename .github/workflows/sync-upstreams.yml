@@ -1,0 +1,105 @@
+name: Sync OlivOS upstream sources
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: olivos-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out OlivOS docs
+        uses: actions/checkout@v4
+        with:
+          repository: OlivOS-Team/OlivOSDoc
+          ref: main
+          path: _upstreams/OlivOSDoc
+          sparse-checkout: docs/DevPlugin
+
+      - name: Check out official native template
+        uses: actions/checkout@v4
+        with:
+          repository: OlivOS-Team/OlivOSPluginTemplate
+          ref: main
+          path: _upstreams/OlivOSPluginTemplate
+
+      - name: Check out Desom templates
+        uses: actions/checkout@v4
+        with:
+          repository: 0Desom0/Desom-OlivaDice-Plugin
+          ref: main
+          path: _upstreams/Desom-OlivaDice-Plugin
+          sparse-checkout: |
+            示例/LightPluginTemplate
+            示例/Desom's_OVO_PluginTemplate
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Sync local snapshots
+        run: >-
+          python scripts/sync_upstreams.py
+          --repo-root .
+          --olivos-doc _upstreams/OlivOSDoc
+          --official-template _upstreams/OlivOSPluginTemplate
+          --desom-plugin _upstreams/Desom-OlivaDice-Plugin
+
+      - name: Detect snapshot changes
+        id: changes
+        run: |
+          if git diff --quiet -- olivos-plugin-developer/references/official-docs olivos-plugin-developer/assets/templates; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit synced snapshots
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add olivos-plugin-developer/references/official-docs olivos-plugin-developer/assets/templates
+          git commit -m "chore: sync OlivOS upstream docs and templates"
+          git push
+
+      - name: Package skill after upstream sync
+        if: steps.changes.outputs.changed == 'true'
+        run: python scripts/package_skill.py --skill-dir olivos-plugin-developer --out-dir dist
+
+      - name: Publish rolling GitHub release after upstream sync
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: olivos-plugin-developer-latest
+          RELEASE_TITLE: olivos-plugin-developer latest
+        run: |
+          SYNC_SHA="$(git rev-parse HEAD)"
+          git tag -f "$RELEASE_TAG" "$SYNC_SHA"
+          git push -f origin "refs/tags/$RELEASE_TAG"
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md
+          else
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md --latest
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            dist/olivos-plugin-developer.zip \
+            dist/olivos-plugin-developer.zip.sha256 \
+            --clobber
