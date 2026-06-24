@@ -1,0 +1,4 @@
+interface:
+  display_name: "OlivOS Plugin Developer"
+  short_description: "Generate OlivOS plugin code safely"
+  default_prompt: "Use $olivos-plugin-developer to implement an OlivOS plugin from my requirements."
