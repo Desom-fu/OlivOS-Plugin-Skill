@@ -1,5 +1,3 @@
-# 注意，全文均为 Vibe Coding 出来的，个人已经用这个 skill 开发了个插件，基本上一键直出，还挺好用
-
 # OlivOS Plugin Developer Skill 发布文档
 
 ## 概述
