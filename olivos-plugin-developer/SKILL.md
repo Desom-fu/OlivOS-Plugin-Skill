@@ -61,7 +61,8 @@ Before generating the final response, follow this internal thought process:
 
 3. **Read scaffold**: Always read all files in the selected template directory to understand the real structure before writing code.
 4. **Implement**: Draft the code using only verified OlivOS interfaces from the bundled docs.
-5. **Review**: Ensure linter rules, try/except blocks, and correct message parsing are applied.
+5. **Encoding check**: Treat `app.json` encoding as a runtime-critical requirement. It must be UTF-8 without BOM.
+6. **Review**: Ensure linter rules, try/except blocks, and correct message parsing are applied.
 
 ## Template Decision Tree
 
@@ -84,6 +85,7 @@ Generate Python targeting Python 3.11, compatible with these style constraints:
 - Sort imports; avoid unused imports outside `__init__.py`
 - Use concise Chinese comments for lifecycle, config, message parsing, permission, and persistence behavior
 - Wrap network requests, file I/O, config reads/writes, and message parsing in `try`/`except` blocks so plugin errors do not crash the OlivOS host
+- Create and modify `app.json` as UTF-8 without BOM. Do not use `utf-8-sig`. Avoid Windows PowerShell 5.1 `Set-Content -Encoding UTF8` and `Out-File -Encoding UTF8` for this file because they can write a BOM. Prefer copying bundled templates, `apply_patch`, Python writers with `encoding='utf-8'`, or explicit .NET UTF-8 without signature.
 
 For complete linter config files, see `.flake8` and `.ruff.toml` in each template directory.
 
@@ -95,6 +97,7 @@ For complete linter config files, see `.flake8` and `.ruff.toml` in each templat
 - Use documented user-module APIs for user data, permissions, and isolation-sensitive behavior
 - For OlivaDiceCore integration, use only functions and extension points found in the OlivaDiceCore source or the referenced rule/light templates
 - If a requirement depends on an undocumented feature, explain the gap and provide the closest safe implementation path
+- Before finalizing plugin files, verify `app.json` does not start with the UTF-8 BOM bytes `EF BB BF`; a valid JSON manifest should normally start with `7B` (`{`). A BOM in `app.json` is a blocking defect because OlivOS may fail to read the manifest.
 
 ## Key OlivOS Concepts (Quick Reference)
 
@@ -111,6 +114,8 @@ menu          → Fires when UI menu item is clicked (strict priority order)
 All event callbacks: `def method_name(plugin_event, Proc):`
 
 ### app.json Template
+
+`app.json` must be saved as UTF-8 without BOM. If writing it from PowerShell, use an explicit BOM-less encoder such as `[System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))` instead of Windows PowerShell 5.1 `-Encoding UTF8`. After creating or updating it, check the first bytes are not `EF BB BF`.
 
 ```json
 {
@@ -163,7 +168,7 @@ When the user provides a plugin requirement, respond with these sections in orde
 1. **需求分析**: Briefly restate the core behavior and important constraints.
 2. **模板选择**: Name one of the three templates and explain why it is the lightest suitable choice.
 3. **代码实现**: Provide a complete file tree and complete core code that can be copied into the plugin directory.
-4. **部署说明**: List configuration path, dependencies, runtime notes, and validation steps.
+4. **部署说明**: List configuration path, dependencies, runtime notes, and validation steps, including a no-BOM check for `app.json`.
 
 Keep the answer practical and code-focused. Avoid marketing copy or generic OlivOS explanations unless needed to justify
 an implementation decision.
