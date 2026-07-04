@@ -94,10 +94,10 @@ jobs:
           git push -f origin "refs/tags/$RELEASE_TAG"
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md
-          else
-            gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md --latest
+            gh release delete "$RELEASE_TAG" --yes
           fi
+
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md --latest
 
           gh release upload "$RELEASE_TAG" \
             dist/olivos-plugin-developer.zip \
