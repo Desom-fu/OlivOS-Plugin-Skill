@@ -1,17 +1,17 @@
 # Template Sources
 
 Official template commit date: 2026-07-30T21:07:59+08:00
-Desom template commit date: 2026-07-31T17:02:03+08:00
+Desom template commit date: 2026-07-31T22:30:18+08:00
 
 - official-native: <https://github.com/OlivOS-Team/OlivOSPluginTemplate>
   branch: main
   commit: b7e4f714b4d2f0dcf95269c43c5c93465414b301
 - light-plugin: <https://github.com/0Desom0/Desom-OlivaDice-Plugin/tree/main/%E7%A4%BA%E4%BE%8B/LightPluginTemplate>
   branch: main
-  commit: 25a131c23a1495f23ba3a0a20a24a42c73acbc11
+  commit: facf6921ef50749f53c195451f196cea0360f15d
 - rule-plugin: <https://github.com/0Desom0/Desom-OlivaDice-Plugin/tree/main/%E7%A4%BA%E4%BE%8B/Desom%27s_OVO_PluginTemplate>
   branch: main
-  commit: 25a131c23a1495f23ba3a0a20a24a42c73acbc11
+  commit: facf6921ef50749f53c195451f196cea0360f15d
 
 Local paths:
 - assets/templates/official-native
