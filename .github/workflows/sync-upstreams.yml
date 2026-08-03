@@ -3,7 +3,9 @@ name: Sync OlivOS upstream sources
 on:
   schedule:
     - cron: '17 */6 * * *'
-  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - desom-templates-updated
 
 permissions:
   contents: write
