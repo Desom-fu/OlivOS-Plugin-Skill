@@ -83,21 +83,50 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # 定时任务与仓库事件可能几乎同时触发，两次运行会改同一批快照。
+      # 先 rebase 到最新 main 再推送；如果另一个任务已经提交了相同内容，
+      # 本地提交会变成空提交被丢弃，此时不重复打包发布。
       - name: Commit synced snapshots
+        id: push
         if: steps.changes.outputs.changed == 'true'
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add olivos-plugin-developer/references/official-docs olivos-plugin-developer/assets/templates
           git commit -m "chore: sync OlivOS upstream docs and templates"
-          git push
+
+          for attempt in 1 2 3 4 5; do
+            if ! git pull --rebase --autostash origin main; then
+              git rebase --abort 2>/dev/null || true
+              echo "::error::同步内容与远端 main 冲突，需要人工处理。"
+              exit 1
+            fi
+
+            if [ "$(git rev-list --count origin/main..HEAD)" -eq 0 ]; then
+              echo "pushed=false" >> "$GITHUB_OUTPUT"
+              echo "另一个同步任务已提交相同内容，跳过打包与发布。"
+              exit 0
+            fi
+
+            if git push origin HEAD:main; then
+              echo "pushed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "第 ${attempt} 次推送被拒绝，拉取远端最新提交后重试。"
+            sleep 5
+          done
+
+          echo "::error::同步结果无法推送到 main，请检查分支保护或并发运行状态。"
+          exit 1
 
       - name: Package skill after upstream sync
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.push.outputs.pushed == 'true'
         run: python scripts/package_skill.py --skill-dir olivos-plugin-developer --out-dir dist
 
       - name: Publish rolling GitHub release after upstream sync
-        if: steps.changes.outputs.changed == 'true'
+        if: steps.push.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: olivos-plugin-developer-latest
@@ -107,11 +136,18 @@ jobs:
           git tag -f "$RELEASE_TAG" "$SYNC_SHA"
           git push -f origin "refs/tags/$RELEASE_TAG"
 
+          # 已存在就直接更新内容，避免删除 release 造成下载链接短暂 404 或并发冲突。
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release delete "$RELEASE_TAG" --yes
+            gh release edit "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file dist/olivos-plugin-developer-release-notes.md \
+              --latest
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "$RELEASE_TITLE" \
+              --notes-file dist/olivos-plugin-developer-release-notes.md \
+              --latest
           fi
-
-          gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --notes-file dist/olivos-plugin-developer-release-notes.md --latest
 
           gh release upload "$RELEASE_TAG" \
             dist/olivos-plugin-developer.zip \
