@@ -50,17 +50,20 @@ def should_skip(path: Path) -> bool:
     return any(part in IGNORED_NAMES for part in path.parts)
 
 
-def copy_existing_tree(source: Path, target: Path, extra_dirs: tuple[str, ...] = ()) -> list[str]:
+def copy_existing_tree(source: Path, target: Path, extra_paths: tuple[str, ...] = ()) -> list[str]:
     if not source.is_dir():
         raise SystemExit(f'Source directory not found: {source}')
     if not target.is_dir():
         raise SystemExit(f'Target directory not found: {target}')
 
     relative_paths = {path.relative_to(target) for path in target.rglob('*') if path.is_file()}
-    # Include newly added WebUI assets, not just files already present in the snapshot.
-    for directory in extra_dirs:
+    # Include new WebUI modules and assets, not just files already present in the snapshot.
+    for relative in extra_paths:
+        extra = source / relative
+        if extra.is_file():
+            relative_paths.add(extra.relative_to(source))
         relative_paths.update(
-            path.relative_to(source) for path in (source / directory).rglob('*') if path.is_file()
+            path.relative_to(source) for path in extra.rglob('*') if path.is_file()
         )
 
     updated: list[str] = []
@@ -187,9 +190,13 @@ def main() -> None:
     official_updated = copy_existing_tree(
         official_template,
         templates_target / 'official-native',
-        extra_dirs=('OlivOSPluginTemplate/webui',),
+        extra_paths=('OlivOSPluginTemplate/webui',),
     )
-    light_updated = copy_existing_tree(example_dir / 'LightPluginTemplate', templates_target / 'light-plugin')
+    light_updated = copy_existing_tree(
+        example_dir / 'LightPluginTemplate',
+        templates_target / 'light-plugin',
+        extra_paths=('YourPluginName/webui.py', 'YourPluginName/webui'),
+    )
     rule_updated = copy_existing_tree(example_dir / "Desom's_OVO_PluginTemplate", templates_target / 'rule-plugin')
     templates_changed = templates_before != snapshot_content(templates_target)
     if templates_changed or not (templates_target / 'SOURCES.md').is_file():
@@ -197,7 +204,7 @@ def main() -> None:
 
     print(f'Synced {len(copied_docs)} OlivOS DevPlugin markdown files.')
     print(f'Synced {len(official_updated)} official-native template files (including WebUI assets).')
-    print(f'Synced {len(light_updated)} existing light-plugin template files.')
+    print(f'Synced {len(light_updated)} light-plugin template files (including WebUI support).')
     print(f'Synced {len(rule_updated)} existing rule-plugin template files.')
     print(f'Bundled content changed: docs={docs_changed}, templates={templates_changed}.')
 

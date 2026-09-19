@@ -155,6 +155,23 @@ class SyncUpstreamsTest(unittest.TestCase):
         self.assertEqual(self.sources()[0], before[0])
         self.assertNotEqual(self.sources()[1], before[1])
 
+    def test_light_webui_module_and_page_are_added_together(self) -> None:
+        before = self.sources()
+        source = self.desom / '示例' / 'LightPluginTemplate' / 'YourPluginName'
+        write_file(source / 'main.py', 'from . import webui\n')
+        write_file(source / 'webui.py', '# Light WebUI handler\n')
+        write_file(source / 'webui' / 'index.html', '<p>Light settings</p>\n')
+        commit(self.desom)
+        self.sync()
+        target = self.templates_target / 'light-plugin' / 'YourPluginName'
+        for relative in ('main.py', 'webui.py', 'webui/index.html'):
+            self.assertEqual((target / relative).read_bytes(), (source / relative).read_bytes())
+        self.assertEqual(self.sources()[0], before[0])
+        self.assertNotEqual(self.sources()[1], before[1])
+        commit(self.repo)
+        self.sync()
+        self.assertEqual(git(self.repo, 'status', '--porcelain'), '')
+
     def test_missing_developer_webui_fails_instead_of_using_user_guide(self) -> None:
         (self.docs / 'docs' / 'DevPlugin' / 'WebUI.md').unlink()
         result = self.sync(check=False)
