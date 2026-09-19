@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'olivos-plugin-developer/**'
+      - '!olivos-plugin-developer/references/official-docs/SOURCES.md'
+      - '!olivos-plugin-developer/assets/templates/SOURCES.md'
       - 'scripts/package_skill.py'
       - '.github/workflows/release-skill.yml'
   workflow_dispatch:

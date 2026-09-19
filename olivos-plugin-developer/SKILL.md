@@ -1,6 +1,6 @@
 ---
 name: olivos-plugin-developer
-description: "Create, modify, scaffold, review, or explain OlivOS Python plugins from user requirements. Use when working with OlivOS plugin templates, events, APIs, message structures, user-module APIs, OlivaDiceCore integrations, dice/TRPG rule plugins, character-sheet extensions, or any OlivOS plugin code generation task. Keywords: OlivOS, OlivOS 插件, OlivaDiceCore, 跑团插件, QQ 机器人插件。"
+description: "Create, modify, scaffold, review, or explain OlivOS Python plugins from user requirements. Use when working with OlivOS plugin templates, events, APIs, message structures, user-module APIs, plugin WebUI pages and message bridges, OlivaDiceCore integrations, dice/TRPG rule plugins, or character-sheet extensions. Keywords: OlivOS, OlivOS 插件, OlivaDiceCore, 跑团插件, QQ 机器人插件。"
 ---
 
 # OlivOS Plugin Developer
@@ -24,7 +24,10 @@ Prefer these local Markdown files for day-to-day plugin work:
 - Plugin APIs: `references/official-docs/markdown/api.md`
 - Message format: `references/official-docs/markdown/message.md`
 - User module APIs: `references/official-docs/markdown/user-module.md`
+- Plugin WebUI development and interfaces: `references/official-docs/markdown/webui.md` (from `docs/DevPlugin/WebUI.md`, not the user guide)
 - Fetch/source manifest: `references/official-docs/SOURCES.md`
+
+For plugin WebUI work, read `webui.md` and the official native template's `OlivOSPluginTemplate/webui/index.html` together with `app.json` and `main.py`. The document covers page registration, the JavaScript message bridge, Python replies, sandbox restrictions, and packaging.
 
 ### Bundled Local Templates (Scaffold Source)
 
@@ -55,7 +58,7 @@ Before generating the final response, follow this internal thought process:
 
    | Template | When to Use | Dependency |
    |----------|-------------|------------|
-   | Official native (`assets/templates/official-native/`) | Extremely lightweight standalone functions, no complex helpers, no dependency on official plugins | Only OlivOS |
+   | Official native (`assets/templates/official-native/`) | Lightweight standalone functions or a simple WebUI page, no complex helpers, no dependency on official plugins | Only OlivOS |
    | Light plugin (`assets/templates/light-plugin/`) | Common or highly customized plugins; may cooperate with OlivaDiceCore but can still run independently | OlivOS + optional OlivaDiceCore |
    | Rule plugin (`assets/templates/rule-plugin/`) | TRPG rule extensions, character-sheet handling, behavior that heavily depends on OlivaDiceCore | OlivOS + OlivaDiceCore (required) |
 
@@ -68,7 +71,7 @@ Before generating the final response, follow this internal thought process:
 
 ```
 User requirement
-├── No OlivaDiceCore needed AND simple (< 3 commands, no GUI/storage)
+├── No OlivaDiceCore needed AND simple (< 3 commands or a simple WebUI, no desktop GUI/complex storage)
 │   └── Official native template
 ├── Can run independently but complex (multi-command, config, GUI, storage)
 │   └── Light plugin template
@@ -95,6 +98,7 @@ For complete linter config files, see `.flake8` and `.ruff.toml` in each templat
 - Use documented lifecycle events only after confirming their exact names and call signatures
 - Parse and construct messages using documented OlivOS message structures only
 - Use documented user-module APIs for user data, permissions, and isolation-sensitive behavior
+- For WebUI, register `webui_config` and ship the referenced `webui/` files. Handle requests through `Event.menu`, check namespace and `getattr(plugin_event.data, 'webui', None)`, and reply using the original event's `send('webui', request_id, response)`; WebUI events have no bot context. Use the parent-window message bridge and validate reply source/type/request ID as documented; the sandbox does not allow direct REST calls, parent storage access, or exposing host credentials.
 - For OlivaDiceCore integration, use only functions and extension points found in the OlivaDiceCore source or the referenced rule/light templates
 - If a requirement depends on an undocumented feature, explain the gap and provide the closest safe implementation path
 - Before finalizing plugin files, verify `app.json` does not start with the UTF-8 BOM bytes `EF BB BF`; a valid JSON manifest should normally start with `7B` (`{`). A BOM in `app.json` is a blocking defect because OlivOS may fail to read the manifest.

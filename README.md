@@ -31,8 +31,7 @@
 
 - 来源仓库：`https://github.com/OlivOS-Team/OlivOSDoc`
 - 分支：`main`
-- commit：`86765c1b756492a8c51aca4eb638d82ae00690f4`
-- 抓取时间：`2026-06-23 17:21:43 +08:00`
+- 对应快照的 commit 和日期见 `olivos-plugin-developer/references/official-docs/SOURCES.md`。
 
 内置文档包括：
 
@@ -41,6 +40,15 @@
 - `api.md`：`plugin_event` 与 `Proc` 常用接口，包括发送、回复、阻塞、撤回、群管理、请求处理、列表查询、文件、公告、合并转发和 OneBot 相关扩展接口。
 - `message.md`：`old_string`、`olivos_string`、`olivos_para` 三种消息模式，以及 OP/CQ 码、转义规则、图片、语音、回复、at、合并转发等消息类型。
 - `user-module.md`：`Proc.database` 用户配置数据库、用户/群/基础配置读写接口、`pkl` 使用规则，以及 IOStream 输入流说明。
+- `webui.md`：来自 `docs/DevPlugin/WebUI.md` 的插件 WebUI 开发接口文档，包含 `webui_config`、消息桥、`Event.menu` 请求处理、`send('webui', ...)` 回包、沙箱限制和打包要求；不是 `docs/User/WebUI.md` 使用指南。
+
+### 自动同步与打包
+
+每 6 小时检查上游，收到 `desom-templates-updated` 事件时也会检查。同步范围包括上述 6 份开发文档、已收录的模板文件，以及官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源（包含新增文件）。
+
+只有收录的文档或模板实际内容变化时，自动同步才会提交、打包并更新 release。上游仅增加提交、修改其他文件或改变 commit hash/日期时，不更新来源记录、不打包。`SOURCES.md` 记录最近一次快照内容更新时的上游版本，文档与模板分别判断；自动变更检测会忽略这两份来源记录，并识别尚未跟踪的新增文件。普通 push 也不会因只有来源记录变化而打包；手动触发打包工作流仍可重建 release。
+
+本地回归检查：`python -m unittest discover -s tests -v`。
 
 ### 模板
 
@@ -56,9 +64,9 @@
 
 路径：`assets/templates/official-native/`
 
-这是 OlivOS 官方最小插件模板，包含 `app.json`、`__init__.py`、`main.py`、CI 配置、lint 配置和 Python 项目元数据。它演示了标准 `main.Event` 入口、`init`、`init_after`、`private_message`、`group_message`、`poke`、`save`、`menu` 等事件，以及通过伪事件对象进行主动发消息的 `send_message_force` 写法。
+这是 OlivOS 官方最小插件模板，本地收录 `app.json`、`__init__.py`、`main.py`、`webui/index.html` 和 lint 配置。它演示了标准 `main.Event` 入口、`init`、`init_after`、`private_message`、`group_message`、`poke`、`save`、`menu` 等事件，通过伪事件对象进行主动发消息的 `send_message_force` 写法，以及 WebUI 页面与 Python 间的请求和回包。
 
-适合需求简单、命令少、无复杂配置、无 GUI、无存储或只需要演示框架事件的插件。
+适合需求简单、命令少、无复杂配置和存储、无桌面 GUI，或只需要简单 WebUI 页面的插件。WebUI 不要求 Node.js、npm 或额外 Web 服务；完整通信需在 OlivOS 宿主中验证。
 
 ### Light Plugin 模板
 
@@ -95,7 +103,7 @@
 
 skill 会选择“足够完成需求的最轻模板”：
 
-- 无 OlivaDiceCore 依赖，功能极简，命令少于 3 个，且没有 GUI 或复杂存储：选择 Official Native。
+- 无 OlivaDiceCore 依赖，功能极简，命令少于 3 个或只需简单 WebUI，且没有桌面 GUI 或复杂存储：选择 Official Native。
 - 可以独立运行，但包含多命令、配置、GUI、存储、自定义回复或权限管理：选择 Light Plugin。
 - 强依赖 OlivaDiceCore，涉及 TRPG 规则、人物卡、自定义回复注入或骰系生态：选择 Rule Plugin。
 

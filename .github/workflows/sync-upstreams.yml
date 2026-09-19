@@ -54,7 +54,11 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Sync local snapshots
+      - name: Test upstream synchronization
+        # Verify content-based sync before allowing automatic commits or releases.
+        run: python -m unittest discover -s tests -v
+
+      - name: Sync local snapshots from upstream
         run: >-
           python scripts/sync_upstreams.py
           --repo-root .
@@ -65,10 +69,18 @@ jobs:
       - name: Detect snapshot changes
         id: changes
         run: |
-          if git diff --quiet -- olivos-plugin-developer/references/official-docs olivos-plugin-developer/assets/templates; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
+          # Include new files; commit hashes and dates alone do not warrant a release.
+          content_paths=(
+            olivos-plugin-developer/references/official-docs
+            olivos-plugin-developer/assets/templates
+            ':(exclude)olivos-plugin-developer/references/official-docs/SOURCES.md'
+            ':(exclude)olivos-plugin-developer/assets/templates/SOURCES.md'
+          )
+          if ! git diff --quiet HEAD -- "${content_paths[@]}" || \
+            [ -n "$(git ls-files --others --exclude-standard -- "${content_paths[@]}")" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Commit synced snapshots
