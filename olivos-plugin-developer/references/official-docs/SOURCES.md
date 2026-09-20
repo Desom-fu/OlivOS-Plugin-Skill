@@ -1,6 +1,6 @@
 # Official OlivOS Documentation Sources
 
-Upstream commit date: 2026-09-18T17:56:51+08:00
+Upstream commit date: 2026-09-20T14:56:30+08:00
 
 GitHub Markdown source files are saved under `markdown/`.
 Markdown is the canonical local reference for development.
@@ -8,7 +8,7 @@ Revision metadata is refreshed only when bundled documentation content changes.
 
 GitHub repository: <https://github.com/OlivOS-Team/OlivOSDoc>
 Branch: main
-Commit: cc80c07c58cc05d3638d77df941f4ba5c850b36f
+Commit: ebfbffdc5848712331b2b4ad443e4b89e6181ac9
 
 Documents:
 - api.md: docs/DevPlugin/API.md
