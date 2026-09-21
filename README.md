@@ -107,6 +107,35 @@ skill 会选择“足够完成需求的最轻模板”：
 - 可以独立运行，但包含多命令、配置、GUI、存储、自定义回复或权限管理：选择 Light Plugin。
 - 强依赖 OlivaDiceCore，涉及 TRPG 规则、人物卡、自定义回复注入或骰系生态：选择 Rule Plugin。
 
+## 本地安装（多客户端同步）
+
+仓库内的 `olivos-plugin-developer/` 是唯一真源，各客户端的个人 skill 目录都由脚本从该目录镜像同步，避免多份副本各自漂移。
+
+双击仓库根目录的 `install-skill.bat`，或直接运行：
+
+```bash
+python scripts/install_skill.py            # 安装 / 更新全部已支持的客户端
+python scripts/install_skill.py --verify   # 只核对现有安装，不写入
+python scripts/install_skill.py --dry-run  # 预览将要执行的动作
+python scripts/install_skill.py --only codex,claudecode,grok,antigravity,agents
+python scripts/install_skill.py --skip workbuddy,dsh
+```
+
+同步目标（相对用户主目录）：
+
+| 客户端 | skills 目录 |
+| --- | --- |
+| Agents 约定（Codex / Grok / Antigravity 都会扫描） | `~/.agents/skills/` |
+| Codex | `~/.codex/skills/` |
+| Claude Code | `~/.claude/skills/` |
+| Grok CLI | `~/.grok/skills/` |
+| Antigravity（全局 customization） | `~/.gemini/config/skills/` |
+| WorkBuddy | `~/.workbuddy/skills/` |
+| DSH | `~/.dsh/skills/` |
+| QoderWork CN | `~/.qoderworkcn/skills/` |
+
+覆盖旧副本前会先把它移到系统临时目录备份；安装完成后逐文件比对 SHA-256，缺失、多余或内容不一致都会把该客户端标记为 `FAIL` 并以非零退出码结束。
+
 ## 使用方式
 
 用户可以直接描述插件需求，例如：
