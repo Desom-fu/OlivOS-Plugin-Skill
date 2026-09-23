@@ -45,6 +45,7 @@
 ### 自动同步与打包
 
 每 6 小时检查上游，收到 `desom-templates-updated` 事件时也会检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
+每 30 分钟检查上游，支持在 GitHub Actions 手动触发，收到 `desom-templates-updated` 事件时也会检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
 
 只有收录的文档或模板实际内容变化时，自动同步才会提交、打包并更新 release。上游仅增加提交、修改其他文件或改变 commit hash/日期时，不更新来源记录、不打包。`SOURCES.md` 记录最近一次快照内容更新时的上游版本，文档与模板分别判断；自动变更检测会忽略这两份来源记录，并识别尚未跟踪的新增文件。普通 push 也不会因只有来源记录变化而打包；手动触发打包工作流仍可重建 release。
 
