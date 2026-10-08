@@ -13,6 +13,15 @@ from . import message
 from . import utils
 from . import webui
 
+# OPK 解包目录会在插件加载完成后被 OlivOS 删除，桌面 GUI 必须在这里导入。
+try:
+    from . import gui
+except Exception as exception_object:
+    gui = None
+    gui_import_error = exception_object
+else:
+    gui_import_error = None
+
 
 class Event(object):
     """OlivOS 识别的标准事件类。"""
@@ -63,13 +72,19 @@ class Event(object):
         message.handle_save(plugin_event, Proc)
 
     def menu(plugin_event, Proc):
-        """分发网页请求与桌面菜单；仅打开桌面面板时加载 Tkinter。"""
+        """分发网页请求与桌面菜单。"""
         if isinstance(getattr(plugin_event.data, 'webui', None), dict):
             webui.handle_menu_event(plugin_event, Proc)
             return
-        try:
-            from . import gui
-        except ImportError:
-            utils.error_log(Proc, '当前环境无法加载 Tkinter，请使用 OlivOS WebUI 配置页面。')
+        if gui is None:
+            error_text = (
+                f'{type(gui_import_error).__name__}: {gui_import_error}'
+                if gui_import_error is not None
+                else 'gui 模块不可用'
+            )
+            utils.error_log(
+                Proc,
+                f'无法打开桌面配置面板：{error_text}。请改用 OlivOS WebUI 配置页面。',
+            )
             return
         gui.handle_menu_event(plugin_event, Proc)

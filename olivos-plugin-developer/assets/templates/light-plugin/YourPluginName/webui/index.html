@@ -40,6 +40,7 @@
                 replies: true,       // 显示回复词编辑、恢复和删除操作。
                 masters: true,       // 显示本插件配置骰主的添加与删除操作。
                 directories: true,   // 显示服务器数据目录，供用户选中复制。
+                importExport: true,  // 显示全局配置、Bot 配置和回复词的导入导出。
             },
         };
     </script>
@@ -264,8 +265,25 @@
             line-height: 1.65;
         }
 
-        select[multiple] {
+        select[multiple],
+        select.reply-list {
             min-height: 170px;
+        }
+
+        label.inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+            white-space: nowrap;
+        }
+
+        .reply-filters {
+            justify-content: space-between;
+        }
+
+        #reply-count {
+            font-size: 13px;
         }
 
         input.path {
@@ -420,6 +438,12 @@
                     <button id="save-global" type="button" class="primary" data-control>
                         保存全局设置
                     </button>
+                    <button id="import-global" type="button" data-control data-import-export>
+                        导入全局配置
+                    </button>
+                    <button id="export-global" type="button" data-control data-import-export>
+                        导出全局配置
+                    </button>
                 </div>
 
                 <details data-directory>
@@ -448,6 +472,12 @@
                     <button id="save-bot" type="button" class="primary" data-control data-bot-control>
                         保存 Bot 设置
                     </button>
+                    <button id="import-bot" type="button" data-control data-bot-control data-import-export>
+                        导入 Bot 配置
+                    </button>
+                    <button id="export-bot" type="button" data-control data-bot-control data-import-export>
+                        导出 Bot 配置
+                    </button>
                 </div>
 
                 <details data-directory>
@@ -464,9 +494,32 @@
                 <!-- 回复词面板：数据目录由后端解析群链，页面只传当前 Bot 的原始 hash。 -->
                 <section id="reply-card" class="card" aria-labelledby="replies-title">
                     <h2 id="replies-title">回复词管理</h2>
+                    <p class="hint">已修改按模板默认文本比较；恢复默认会删掉这一条覆盖层。</p>
 
-                    <label for="reply-key">回复词条目</label>
-                    <select id="reply-key" data-control data-bot-control></select>
+                    <label for="reply-search">搜索回复词</label>
+                    <input
+                        id="reply-search"
+                        type="text"
+                        placeholder="键名、说明或内容"
+                        autocomplete="off"
+                        data-control
+                        data-bot-control
+                    >
+
+                    <div class="row reply-filters">
+                        <span id="reply-count" class="muted">0 / 0 条回复</span>
+                        <label class="inline">
+                            <input id="reply-filter-modified" type="checkbox" data-control data-bot-control>
+                            仅看已修改
+                        </label>
+                        <label class="inline">
+                            <input id="reply-filter-unmodified" type="checkbox" data-control data-bot-control>
+                            仅看未修改
+                        </label>
+                    </div>
+
+                    <label for="reply-key" class="spaced-label">回复词条目</label>
+                    <select id="reply-key" class="reply-list" size="8" data-control data-bot-control></select>
                     <p id="reply-note" class="hint"></p>
 
                     <label for="reply-value">回复内容</label>
@@ -488,6 +541,12 @@
                         </button>
                     </div>
                     <div class="row">
+                        <button id="import-replies" type="button" data-control data-bot-control data-import-export>
+                            导入回复词
+                        </button>
+                        <button id="export-replies" type="button" data-control data-bot-control data-import-export>
+                            导出回复词
+                        </button>
                         <button id="reset-replies" type="button" class="danger" data-control data-bot-control>
                             恢复全部默认回复
                         </button>
@@ -526,6 +585,10 @@
         </section>
     </main>
 
+    <input id="import-global-file" type="file" accept=".json,application/json" hidden>
+    <input id="import-bot-file" type="file" accept=".json,application/json" hidden>
+    <input id="import-replies-file" type="file" accept=".json,application/json" hidden>
+
     <!-- 沙箱中使用页面内 dialog，不使用需要 allow-modals 的 window.confirm()。 -->
     <dialog id="confirm-dialog" aria-labelledby="confirm-title">
         <h2 id="confirm-title">确认操作</h2>
@@ -545,6 +608,8 @@
         let isBusy = false;
         let selectedReplyKey = '';
         let requestSequence = 0;
+        let replyStatusFilter = 'all';
+        let replyQuery = '';
 
         // 按请求 ID 保存 Promise 回调和计时器，用于匹配回包并处理超时。
         const pendingRequests = new Map();
@@ -670,7 +735,7 @@
                 return;
             }
 
-            pendingRequest.resolve(result.state);
+            pendingRequest.resolve(result);
         }
 
         function cancelPendingRequests() {
@@ -698,7 +763,8 @@
                     bot_hash: pageState?.bot?.hash || '',
                     ...payload,
                 };
-                const nextState = await sendRequest(requestPayload);
+                const result = await sendRequest(requestPayload);
+                const nextState = result.state;
 
                 // 宿主可能移除账号或调整群链，此时必须一起更新表单和实际写入目标。
                 const botChanged = pageState?.bot?.hash !== nextState.bot?.hash;
@@ -710,7 +776,7 @@
                 render(nextState);
                 pageState = nextState;
                 showStatus(successText);
-                return true;
+                return result;
             } catch (error) {
                 // 保存失败时保留表单草稿，不把旧的服务器值写回输入框。
                 showStatus(error.message || '操作失败，请刷新后重试。', true);
@@ -755,24 +821,61 @@
             unsavedChanges.global = false;
         }
 
+        function getFilteredReplies(bot) {
+            const replies = bot?.replies || [];
+            const query = replyQuery.trim().toLowerCase();
+            return replies.filter((reply) => {
+                if (replyStatusFilter === 'modified' && !reply.modified) {
+                    return false;
+                }
+                if (replyStatusFilter === 'unmodified' && reply.modified) {
+                    return false;
+                }
+                if (!query) {
+                    return true;
+                }
+                return `${reply.key} ${reply.note} ${reply.value}`.toLowerCase().includes(query);
+            });
+        }
+
         function renderReplyEditor(bot, key) {
             const reply = bot?.replies.find((item) => item.key === key);
             selectedReplyKey = reply?.key || '';
             getElement('reply-key').value = selectedReplyKey;
             getElement('reply-note').textContent = reply?.note || '当前没有可编辑的回复词。';
             getElement('reply-value').value = reply?.value || '';
-            getElement('reset-reply').textContent = reply?.is_default ? '恢复这条默认回复' : '删除扩展回复词';
+            if (!reply) {
+                getElement('reset-reply').textContent = '恢复 / 删除';
+            } else if (!reply.is_default) {
+                getElement('reset-reply').textContent = '删除扩展回复词';
+            } else if (reply.modified) {
+                getElement('reset-reply').textContent = '恢复这条默认回复';
+            } else {
+                getElement('reset-reply').textContent = '已是默认回复';
+            }
             unsavedChanges.reply = false;
         }
 
-        function renderReplyList(nextState) {
+        function renderReplyList(nextState, keepDraft = false) {
             const replies = nextState.bot?.replies || [];
-            const options = replies.map((reply) => ({value: reply.key, label: reply.key}));
+            const filtered = getFilteredReplies(nextState.bot);
+            const options = filtered.map((reply) => ({
+                value: reply.key,
+                label: reply.modified ? `${reply.key} · 已修改` : reply.key,
+            }));
             populateOptions(getElement('reply-key'), options);
+            getElement('reply-count').textContent = `${filtered.length} / ${replies.length} 条回复`;
+            getElement('reply-search').value = replyQuery;
+            getElement('reply-filter-modified').checked = replyStatusFilter === 'modified';
+            getElement('reply-filter-unmodified').checked = replyStatusFilter === 'unmodified';
 
-            // 保存后尽量保持原选中项；如果扩展词被删除，则选择列表中的第一项。
-            const selectionExists = replies.some((reply) => reply.key === selectedReplyKey);
-            const nextKey = selectionExists ? selectedReplyKey : replies[0]?.key;
+            // 保存后尽量保持原选中项；如果当前项被筛掉或删除，则选择可见列表中的第一项。
+            const selectionExists = filtered.some((reply) => reply.key === selectedReplyKey);
+            const nextKey = selectionExists ? selectedReplyKey : filtered[0]?.key;
+            if (keepDraft && nextKey === selectedReplyKey) {
+                getElement('reply-key').value = selectedReplyKey;
+                return;
+            }
             renderReplyEditor(nextState.bot, nextKey);
         }
 
@@ -909,6 +1012,104 @@
             await runAction('reset_replies', {confirm: true}, renderReplyList, '已恢复全部默认回复。');
         }
 
+        function downloadJson(filename, data) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || 'export.json';
+            link.rel = 'noopener';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function readJsonFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const parsed = JSON.parse(String(reader.result || ''));
+                        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                            reject(new Error('JSON 文件必须是对象。'));
+                            return;
+                        }
+                        resolve(parsed);
+                    } catch (_error) {
+                        reject(new Error('无法解析 JSON 文件。'));
+                    }
+                };
+                reader.onerror = () => reject(new Error('读取文件失败。'));
+                reader.readAsText(file, 'utf-8');
+            });
+        }
+
+        async function handleExportClick(action, fallbackName) {
+            const result = await runAction(action, {}, () => {}, '已导出 JSON 文件。');
+            if (result?.data) {
+                downloadJson(result.filename || fallbackName, result.data);
+            }
+        }
+
+        async function handleImportFile(kind, file) {
+            const input = getElement(`import-${kind}-file`);
+            if (!file) {
+                if (input) {
+                    input.value = '';
+                }
+                return;
+            }
+
+            try {
+                const data = await readJsonFile(file);
+                const count = Object.keys(data).length;
+                const labels = {
+                    global: '全局配置',
+                    bot: 'Bot 配置',
+                    replies: '回复词',
+                };
+                const confirmText = `将导入 ${count} 项${labels[kind]}，同名字段会覆盖当前值，继续吗？`;
+                if (!await confirmAction(confirmText)) {
+                    return;
+                }
+
+                const action = kind === 'global' ? 'import_global' : kind === 'bot' ? 'import_bot' : 'import_replies';
+                const render = kind === 'global'
+                    ? renderGlobalSettings
+                    : kind === 'bot'
+                        ? renderBotSettings
+                        : renderReplyList;
+                await runAction(action, {data: data, confirm: true}, render, `${labels[kind]}已导入。`);
+            } catch (error) {
+                showStatus(error.message || '导入失败，请检查 JSON 文件。', true);
+            } finally {
+                if (input) {
+                    input.value = '';
+                }
+            }
+        }
+
+        async function handleReplyFilterChange(nextStatusFilter) {
+            if (unsavedChanges.reply) {
+                const confirmed = await confirmAction('筛选会切到可见列表中的条目，放弃当前回复词尚未保存的修改吗？');
+                if (!confirmed) {
+                    getElement('reply-filter-modified').checked = replyStatusFilter === 'modified';
+                    getElement('reply-filter-unmodified').checked = replyStatusFilter === 'unmodified';
+                    return;
+                }
+            }
+            replyStatusFilter = nextStatusFilter;
+            renderReplyList(pageState);
+            updateControlStates();
+        }
+
+        function handleReplySearchInput() {
+            replyQuery = getElement('reply-search').value;
+            renderReplyList(pageState, true);
+            updateControlStates();
+        }
+
         async function handleAddMastersClick() {
             const input = getElement('master-input').value.trim();
             const ids = input.split(/[\s,;，；]+/).filter(Boolean);
@@ -987,6 +1188,9 @@
             getElement('master-card').hidden = !features.masters;
             getElement('bot-tools').hidden = !features.replies && !features.masters;
             getElement('bot-tools').classList.toggle('single-column', !features.replies || !features.masters);
+            document.querySelectorAll('[data-import-export]').forEach((control) => {
+                control.hidden = !features.importExport;
+            });
 
             document.querySelectorAll('[data-directory]').forEach((section) => {
                 section.hidden = !features.directories;
@@ -1010,6 +1214,28 @@
             getElement('save-reply').addEventListener('click', handleSaveReplyClick);
             getElement('reset-reply').addEventListener('click', handleResetReplyClick);
             getElement('reset-replies').addEventListener('click', handleResetAllRepliesClick);
+            getElement('export-global').addEventListener('click', () => handleExportClick('export_global', 'global-config.json'));
+            getElement('export-bot').addEventListener('click', () => handleExportClick('export_bot', 'bot-config.json'));
+            getElement('export-replies').addEventListener('click', () => handleExportClick('export_replies', 'replies.json'));
+            getElement('import-global').addEventListener('click', () => getElement('import-global-file').click());
+            getElement('import-bot').addEventListener('click', () => getElement('import-bot-file').click());
+            getElement('import-replies').addEventListener('click', () => getElement('import-replies-file').click());
+            getElement('import-global-file').addEventListener('change', (event) => {
+                handleImportFile('global', event.target.files?.[0]);
+            });
+            getElement('import-bot-file').addEventListener('change', (event) => {
+                handleImportFile('bot', event.target.files?.[0]);
+            });
+            getElement('import-replies-file').addEventListener('change', (event) => {
+                handleImportFile('replies', event.target.files?.[0]);
+            });
+            getElement('reply-filter-modified').addEventListener('change', (event) => {
+                handleReplyFilterChange(event.target.checked ? 'modified' : 'all');
+            });
+            getElement('reply-filter-unmodified').addEventListener('change', (event) => {
+                handleReplyFilterChange(event.target.checked ? 'unmodified' : 'all');
+            });
+            getElement('reply-search').addEventListener('input', handleReplySearchInput);
             getElement('add-masters').addEventListener('click', handleAddMastersClick);
             getElement('remove-masters').addEventListener('click', handleRemoveMastersClick);
             getElement('master-input').addEventListener('keydown', handleMasterInputKeydown);
