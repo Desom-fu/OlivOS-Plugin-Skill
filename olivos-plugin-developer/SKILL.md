@@ -103,6 +103,13 @@ For complete linter config files, see `.flake8` and `.ruff.toml` in each templat
 - If a requirement depends on an undocumented feature, explain the gap and provide the closest safe implementation path
 - Before finalizing plugin files, verify `app.json` does not start with the UTF-8 BOM bytes `EF BB BF`; a valid JSON manifest should normally start with `7B` (`{`). A BOM in `app.json` is a blocking defect because OlivOS may fail to read the manifest.
 
+### OPK Resource Lifecycle
+
+- OPK plugins are imported from `plugin/tmp/<namespace>/`. The host cleans this unpacked directory after `init` and before `init_after`; do not assume paths beside `__file__` remain readable at runtime.
+- For bundled static resources read by Python (such as HTML templates, JSON, Markdown, images, or manifest metadata), load the required content into memory during module import or `init`, or use a host-supported resource release mechanism. Keeping only the original path is insufficient. Import runtime-required Python submodules before cleanup as well; importing them for the first time on a command or menu click can fail.
+- Files bundled under `data/` are copied by the host to `plugin/data/<namespace>/data` between `init` and `init_after`; use that released location for subsequent reads. Registered WebUI resources are cached and served by the host and do not need to be loaded into Python memory. See `references/official-docs/markdown/template.md` and `references/official-docs/markdown/webui.md` for these mechanisms. Keep writable user configuration and business data outside the unpacked directory.
+- When a plugin depends on bundled resources, verify its first command, menu action, or render that uses them after the unpacked directory has been removed. Source-folder operation alone does not establish OPK compatibility.
+
 ## Key OlivOS Concepts (Quick Reference)
 
 ### Lifecycle Events
