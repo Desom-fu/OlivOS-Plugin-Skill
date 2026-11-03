@@ -50,6 +50,8 @@ TARGETS: dict[str, tuple[str, str]] = {
     'workbuddy': ('.workbuddy/skills', 'WorkBuddy'),
     'dsh': ('.dsh/skills', 'DSH'),
     'qoderwork': ('.qoderworkcn/skills', 'QoderWork CN'),
+    'qoder': ('.qoder/skills', 'QoderWork global'),
+    'qoder': ('.omp/agent/skills', 'Oh My Pi'),
 }
 
 EXCLUDED_DIRS = {
