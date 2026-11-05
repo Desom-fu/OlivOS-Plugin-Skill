@@ -100,6 +100,8 @@ For complete linter config files, see `.flake8` and `.ruff.toml` in each templat
 - Use documented user-module APIs for user data, permissions, and isolation-sensitive behavior
 - For WebUI, register `webui_config` and ship the referenced `webui/` files. Handle requests through `Event.menu`, check namespace and `getattr(plugin_event.data, 'webui', None)`, and reply using the original event's `send('webui', request_id, response)`; WebUI events have no bot context. Use the parent-window message bridge and validate reply source/type/request ID as documented; the sandbox does not allow direct REST calls, parent storage access, or exposing host credentials.
 - For OlivaDiceCore integration, use only functions and extension points found in the OlivaDiceCore source or the referenced rule/light templates
+- OlivOS runs lower numeric priorities first. OlivaDiceCore defaults to `20000`; use `20020` by default for rule plugins without conflicting commands so Core handles events first. Core may match overlapping commands before the rule plugin; evaluate conflicts, and place plugins intended to override Core commands before Core instead.
+- For a post-Core rule plugin to receive a direct @ while `.bot off`, use Core 3.5.10 (SVN 1210) or a version containing the `nativeMsgBlocker` fix. User priority overrides can change the effective order.
 - If a requirement depends on an undocumented feature, explain the gap and provide the closest safe implementation path
 - Before finalizing plugin files, verify `app.json` does not start with the UTF-8 BOM bytes `EF BB BF`; a valid JSON manifest should normally start with `7B` (`{`). A BOM in `app.json` is a blocking defect because OlivOS may fail to read the manifest.
 

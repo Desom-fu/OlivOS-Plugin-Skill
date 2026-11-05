@@ -91,7 +91,9 @@
 
 路径：`assets/templates/rule-plugin/`
 
-这是面向 OlivaDiceCore 的规则插件模板，`app.json` 默认使用 `old_string` 消息模式，优先级建议小于 `20000`。模板包含：
+这是面向 OlivaDiceCore 的规则插件模板，`app.json` 默认使用 `old_string` 消息模式，优先级为 `20020`，排在默认优先级 `20000` 的 OlivaDiceCore 之后。Core 可能抢先匹配重叠命令，应评估命令冲突；有意覆盖 Core 命令的插件应排在 Core 之前。模板包含：
+
+`bot off` 时前置 @ 本骰仍需传给 Core 之后的规则插件时，应使用包含 `nativeMsgBlocker` 放行修复的 Core（3.5.10 / SVN 1210 或更新版本）。用户覆盖优先级会改变实际调用顺序。
 
 - `main.py`：转发初始化、私聊、群聊、菜单等事件。
 - `msgReply.py`：核心命令解析和回复处理位置。
