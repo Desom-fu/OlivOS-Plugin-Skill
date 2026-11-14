@@ -17,6 +17,7 @@ Documents:
 - template.md: docs/DevPlugin/Template.md
 - user-module.md: docs/DevPlugin/UserModule.md
 - webui.md: docs/DevPlugin/WebUI.md
+- img/senpai.png: docs/DevPlugin/img/senpai.png
 
 Fetch status:
 - markdown: saved

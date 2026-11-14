@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -17,6 +18,15 @@ DOC_MAPPINGS = {
     'UserModule': 'user-module',
     'WebUI': 'webui',
 }
+
+# 站点绝对路径（mkdocs 目录式 URL）与上游仓库里的相对链接，在快照里都要改成可点的目标：
+# - 同一目录下已收录的文档：改成快照里的小写文件名
+# - 未收录的上游文档（如 User/WebUI.md）：改成 GitHub blob 链接
+# - 站点路由（如 /OlivOS_DevDoc_Plugin_API/）：改成线上文档站链接
+DOCS_SITE_BASE = 'https://doc.olivos.wiki'
+UPSTREAM_DOCS_BLOB = 'https://github.com/OlivOS-Team/OlivOSDoc/blob/main/docs'
+
+MARKDOWN_LINK_PATTERN = re.compile(r'(\]\()([^)\s]+)(\))')
 
 IGNORED_NAMES = {
     '.git',
@@ -91,6 +101,45 @@ def snapshot_content(directory: Path) -> dict[str, bytes]:
     }
 
 
+def rewrite_doc_links(text: str, bundled_names: set[str]) -> str:
+    """把上游文档里的链接改写成快照内可达的目标。
+
+    上游写的是站点路由或大写文件名（`WebUI.md`、`/DevPlugin/UserModule/#_3`），
+    快照里统一存成小写，在大小写敏感的文件系统上原样保留就是死链。
+    """
+    site_routes = {
+        f'/DevPlugin/{upstream}/': f'{local}.md'
+        for upstream, local in DOC_MAPPINGS.items()
+    }
+
+    def replace(match: re.Match[str]) -> str:
+        prefix, target, suffix = match.group(1), match.group(2), match.group(3)
+        if target.startswith(('http://', 'https://', 'mailto:', '#')):
+            return match.group(0)
+
+        path, separator, anchor = target.partition('#')
+        tail = f'#{anchor}' if separator else ''
+
+        if path.startswith('/'):
+            local_name = site_routes.get(path)
+            if local_name and local_name in bundled_names:
+                return f'{prefix}{local_name}{tail}{suffix}'
+            return f'{prefix}{DOCS_SITE_BASE}{path}{tail}{suffix}'
+
+        if path.startswith('../'):
+            upstream_rel = path[3:]
+            return f'{prefix}{UPSTREAM_DOCS_BLOB}/{upstream_rel}{tail}{suffix}'
+
+        local_prefix = './' if path.startswith('./') else ''
+        candidate = path[len(local_prefix):]
+        if '/' not in candidate and candidate.lower() in bundled_names:
+            return f'{prefix}{local_prefix}{candidate.lower()}{tail}{suffix}'
+
+        return match.group(0)
+
+    return MARKDOWN_LINK_PATTERN.sub(replace, text)
+
+
 def sync_docs(olivos_doc: Path, target_dir: Path) -> list[tuple[str, str]]:
     source_dir = olivos_doc / 'docs' / 'DevPlugin'
     if not source_dir.is_dir():
@@ -100,13 +149,28 @@ def sync_docs(olivos_doc: Path, target_dir: Path) -> list[tuple[str, str]]:
     if not markdown_dir.is_dir():
         raise SystemExit(f'Local markdown directory not found: {markdown_dir}')
 
+    bundled_names = {f'{local}.md' for local in DOC_MAPPINGS.values()}
     copied: list[tuple[str, str]] = []
     for upstream_name, local_name in sorted(DOC_MAPPINGS.items(), key=lambda item: item[1]):
         source = source_dir / f'{upstream_name}.md'
         if not source.is_file():
             raise SystemExit(f'OlivOS DevPlugin document not found: {source}')
-        shutil.copy2(source, markdown_dir / f'{local_name}.md')
+        text = rewrite_doc_links(source.read_text(encoding='utf-8'), bundled_names)
+        (markdown_dir / f'{local_name}.md').write_text(text, encoding='utf-8', newline='')
         copied.append((f'{local_name}.md', f'docs/DevPlugin/{source.name}'))
+
+    # 文档里引用的图片也要一起收，否则本地快照里的 image 链接必然失效。
+    image_source = source_dir / 'img'
+    if image_source.is_dir():
+        image_target = markdown_dir / 'img'
+        for image in sorted(image_source.rglob('*')):
+            if not image.is_file():
+                continue
+            relative = image.relative_to(image_source)
+            destination = image_target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(image, destination)
+            copied.append((f'img/{relative.as_posix()}', f'docs/DevPlugin/img/{relative.as_posix()}'))
     return copied
 
 

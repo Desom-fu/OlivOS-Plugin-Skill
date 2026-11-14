@@ -64,7 +64,7 @@
 | Proc_data['bot_info_dict'] | list | 登录账号信息<br/>其中key为bot的hash<br/>value为类型为OlivOS.API.bot_info_T的机器人信息 | - |
 | `Proc_data['qqGuildv2_self_openid']` | dict | 机器人在群内的 OpenID，key 为 bot 的 hash。<br/>**仅 QQ 官方机器人（qqGuildv2）有值**，其他平台不会出现这一项。<br/>机器人在一个群都没有、或从未成功取回过时为**空字典**；有过群请求并成功取回后才有值。 | `{}` |
 
-调用接口请参考[插件接口 -> 进程接口](/OlivOS_DevDoc_Plugin_API/#_3)章节。
+调用接口请参考[插件接口 -> 进程接口](https://doc.olivos.wiki/OlivOS_DevDoc_Plugin_API/#_3)章节。
 
 
 #### 调用入口
@@ -246,7 +246,7 @@ QQ 官方机器人（`qqGuildv2_link`）的回调按钮（按钮 `action.type=1`
 未提供的字段保持 None。插件应先核对按钮标识和业务数据，再执行相应操作。
 此事件不含 `message`，不受插件 `message_mode` 影响，仍遵循插件平台过滤、优先级和 `set_block()`。
 
-发送业务处理结果可使用已有的 [QQ 专属发送接口](API.md#qqguildv2-send-message)：
+发送业务处理结果可使用已有的 [QQ 专属发送接口](api.md#qqguildv2-send-message)：
 
 ```python
 class Event(object):
@@ -628,6 +628,6 @@ WebUI 的插件页面交互也复用 `Event.menu`，不是一个名为 `webui` �
 
 网页事件仍然没有机器人上下文，`plugin_event.bot_info` 为 `None`。需要回包时，使用原事件调用 `plugin_event.send('webui', request_id, payload)`，不要使用 `reply()`。`session` 是宿主管理的会话信息，不应写入日志或返回给页面。
 
-完整示例见 [WebUI 页面开发](WebUI.md)。
+完整示例见 [WebUI 页面开发](webui.md)。
 
 **该事件一定会按照优先级顺序被调用。**

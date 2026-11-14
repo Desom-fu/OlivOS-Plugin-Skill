@@ -1,7 +1,7 @@
 ---
 name: olivos-plugin-developer
 description: "Create, modify, review, or explain OlivOS Python plugins from user requirements: plugin templates, framework events, plugin APIs, message formats, user modules, plugin WebUI pages, OlivaDiceCore integration, dice/TRPG rule plugins, character sheets, OPK packaging. 关键词：OlivOS 插件、插件模板、框架事件、插件 API、消息格式、WebUI 页面、OlivaDiceCore、青果骰、跑团插件、规则插件、人物卡、opk 打包。"
-version: 1.1.1
+version: 1.2.0
 author: Desom-fu
 license: MIT
 platforms: [linux, macos, windows]
@@ -23,21 +23,15 @@ Use **only** APIs, classes, methods, events, message formats, and module interfa
 
 ### Bundled Local Documentation (Primary Reference)
 
-Prefer these local Markdown files for day-to-day plugin work:
+`references/official-docs/markdown/` holds the upstream snapshot: `template.md` (structure, `app.json`, OPK), `event.md` (framework events), `api.md` (`plugin_event` / `Proc`), `message.md` (message modes), `user-module.md` (`Proc.database`), `webui.md` (plugin WebUI). Source commit: `references/official-docs/SOURCES.md`.
 
-- Template description: `references/official-docs/markdown/template.md`
-- Framework events: `references/official-docs/markdown/event.md`
-- Plugin APIs: `references/official-docs/markdown/api.md`
-- Message format: `references/official-docs/markdown/message.md`
-- User module APIs: `references/official-docs/markdown/user-module.md`
-- Plugin WebUI development and interfaces: `references/official-docs/markdown/webui.md` (from `docs/DevPlugin/WebUI.md`, not the user guide)
-- Fetch/source manifest: `references/official-docs/SOURCES.md`
+The snapshot is verbatim upstream, **which does not make its examples runnable**. When a documented signature, argument list, or example conflicts with the target version's source, trust the source. `references/official-docs/ERRATA.md` lists known disagreements — add to it instead of quietly coding around one.
 
-For plugin WebUI work, read `webui.md` and the official native template's `OlivOSPluginTemplate/webui/index.html` together with `app.json` and `main.py`. The document covers page registration, the JavaScript message bridge, Python replies, sandbox restrictions, and packaging.
+Manuals a normal task does not need: `references/quick-reference.md` and `references/licensing.md`.
 
-### Bundled Local Templates (Scaffold Source)
+### Bundled Local Templates
 
-Use these local template files as the starting scaffold instead of recreating structure from memory:
+Use these as the starting scaffold instead of recreating structure from memory:
 
 - Official native template: `assets/templates/official-native/`
 - Light plugin template: `assets/templates/light-plugin/`
@@ -104,15 +98,6 @@ Pick the lightest template that satisfies the requirement, say which one and why
 | Light plugin (`assets/templates/light-plugin/`) | Common or highly customized plugins; may cooperate with OlivaDiceCore but can still run independently | OlivOS + optional OlivaDiceCore |
 | Rule plugin (`assets/templates/rule-plugin/`) | TRPG rule extensions, character-sheet handling, behavior that heavily depends on OlivaDiceCore | OlivOS + OlivaDiceCore (required) |
 
-```
-User requirement
-├── No OlivaDiceCore needed AND simple (< 3 commands or a simple WebUI, no desktop GUI/complex storage)
-│   └── Official native template
-├── Can run independently but complex (multi-command, config, GUI, storage)
-│   └── Light plugin template
-└── Heavily depends on OlivaDiceCore (TRPG rules, character sheets, replyMsg integration)
-    └── Rule plugin template
-```
 
 Read in this order and stop as soon as the current requirement is covered:
 
@@ -122,6 +107,8 @@ Read in this order and stop as soon as the current requirement is covered:
 4. Any other file **only** for the feature actually being built — config, GUI, storage helper, a WebUI page.
 
 Do not read all three templates, and do not read files the plugin will not use. The light template ships large optional modules: `gui.py` and `utils.py` are each over a thousand lines, so locate the function you need with `search_files` and read that region rather than the whole file. Skipping the scaffold invents structure; reading every scaffold burns the context the actual requirement needs.
+
+The light template's `gui.py` (desktop panel) and `webui.py` + `webui/` (web config page) are **optional**. When the requirement needs neither, delete them and drop the matching `menu_config` / `webui_config` entries from `app.json`; `main.py` guards both imports, so removing a module cannot break plugin loading.
 
 ## Step 2 — Implement
 
@@ -165,19 +152,15 @@ One question decides it: **can this really fail, and do I need to know when it d
 - Use documented lifecycle events only after confirming their exact names and call signatures
 - Parse and construct messages using documented OlivOS message structures only
 - Use documented user-module APIs for user data, permissions, and isolation-sensitive behavior
-- For WebUI, register `webui_config` and ship the referenced `webui/` files. Handle requests through `Event.menu`, check namespace and `getattr(plugin_event.data, 'webui', None)`, and reply using the original event's `send('webui', request_id, response)`; WebUI events have no bot context. Use the parent-window message bridge and validate reply source/type/request ID as documented; the sandbox does not allow direct REST calls, parent storage access, or exposing host credentials.
+- For WebUI, register `webui_config` and ship the referenced `webui/` files; handle requests through `Event.menu` and reply with the original event's `send('webui', request_id, response)` (WebUI events have no bot context). Validate namespace and request ID, and keep within the sandbox: no direct REST calls, no host storage, no credentials. Full contract: `references/official-docs/markdown/webui.md`.
 - For OlivaDiceCore integration, use only functions and extension points found in the OlivaDiceCore source or the referenced rule/light templates
-- OlivOS runs lower numeric priorities first. OlivaDiceCore defaults to `20000`; use `20020` by default for rule plugins without conflicting commands so Core handles events first. Core may match overlapping commands before the rule plugin; evaluate conflicts, and place plugins intended to override Core commands before Core instead.
-- For a post-Core rule plugin to receive a direct @ while `.bot off`, use Core 3.5.10 (SVN 1210) or a version containing the `nativeMsgBlocker` fix. User priority overrides can change the effective order.
+- OlivOS runs lower numeric priorities first: rule plugins default to `20020` so OlivaDiceCore (`20000`) handles events first, and a plugin meant to override Core goes before it. Version floors and user overrides: `references/quick-reference.md`.
 - If a requirement depends on an undocumented feature, explain the gap and provide the closest safe implementation path
 - Before finalizing plugin files, verify `app.json` does not start with the UTF-8 BOM bytes `EF BB BF`; a valid JSON manifest should normally start with `7B` (`{`). A BOM in `app.json` is a blocking defect because OlivOS may fail to read the manifest.
 
 ### OPK Resource Lifecycle
 
-- OPK plugins are imported from `plugin/tmp/<namespace>/`. The host cleans this unpacked directory after `init` and before `init_after`; do not assume paths beside `__file__` remain readable at runtime.
-- For bundled static resources read by Python (such as HTML templates, JSON, Markdown, images, or manifest metadata), load the required content into memory during module import or `init`, or use a host-supported resource release mechanism. Keeping only the original path is insufficient. Import runtime-required Python submodules before cleanup as well; importing them for the first time on a command or menu click can fail.
-- Files bundled under `data/` are copied by the host to `plugin/data/<namespace>/data` between `init` and `init_after`; use that released location for subsequent reads. Registered WebUI resources are cached and served by the host and do not need to be loaded into Python memory. See `references/official-docs/markdown/template.md` and `references/official-docs/markdown/webui.md` for these mechanisms. Keep writable user configuration and business data outside the unpacked directory.
-- When a plugin depends on bundled resources, verify its first command, menu action, or render that uses them after the unpacked directory has been removed. Source-folder operation alone does not establish OPK compatibility.
+When the plugin ships its own static resources or is delivered as an `.opk`, read `references/opk-lifecycle.md` first: the unpacked directory is deleted between `init` and `init_after`, so resources must be loaded into memory or released through `data/` before that happens.
 
 ## Step 3 — Package as OPK
 
@@ -190,13 +173,7 @@ python scripts/package_opk.py <plugin-dir> --check-only         # validate the p
 python scripts/package_opk.py <plugin-dir> --allow-missing      # downgrade missing required files to warnings
 ```
 
-The packer enforces the official packaging rules and refuses to emit a broken archive:
-
-- entries stay flat, so `app.json` sits at the archive root exactly as the official template CI produces it
-- `app.json`, `__init__.py`, and `main.py` must exist
-- `app.json` must decode as UTF-8, must not begin with a BOM, and must parse as JSON; the detected `namespace`, `name`, and `version` are printed, and a `namespace` that differs from the directory name is reported as a warning
-- VCS, editor, cache, and archive leftovers are excluded (`__pycache__`, `.git`, `.idea`, `.vscode`, `.pytest_cache`, `*.pyc`, `*.bak`, `.DS_Store`, `Thumbs.db`, `*.opk`, `*.zip`)
-- the written archive is reopened and re-checked for flatness and required files, so a packaging mistake cannot ship silently
+The packer refuses to emit a broken archive: entries must stay flat (`app.json` at the root, no wrapping folder), `app.json` / `__init__.py` / `main.py` must exist, `app.json` must decode as UTF-8 without a BOM and parse as JSON, `namespace` must match the directory name, caches and leftovers (`__pycache__`, `.git`, `*.pyc`, `*.bak`, old `*.opk` / `*.zip`) are excluded, and the written archive is reopened to re-verify flatness and required entries.
 
 Deliver the OPK only once the user confirms the feature set is complete. Never call an OPK valid without running the packer (or the same checks) in this session.
 
@@ -204,7 +181,9 @@ Deliver the OPK only once the user confirms the feature set is complete. Never c
 
 Walk this list before handing files over, and fix what fails. Report the outcome in one line; do not paste the whole list back.
 
-- [ ] `app.json` starts with `{` (no BOM), parses as JSON, and only `name`, `author`, `namespace`, `info`, `version`, `svn`, and menu entries differ from the template
+- [ ] `app.json` starts with `{` (no BOM) and parses as JSON
+- [ ] Only fields the requirement justifies differ from the template: `name` / `info` / `version` / `svn` / `author` / `namespace` always allowed; `priority`, `message_mode`, `compatible_svn`, `support`, `menu_config`, `webui_config` when the behavior needs them — name the reason in the delivery notes
+- [ ] A plugin with no UI ships no `menu_config` / `webui_config`, and the template's `gui.py` / `webui.py` / `webui/` are deleted rather than left behind unused
 - [ ] `namespace` matches the plugin directory name exactly
 - [ ] `__init__.py` imports every extra module the plugin ships
 - [ ] `main.Event` keeps only the hooks the plugin needs, each with the `def method(plugin_event, Proc):` signature
@@ -231,82 +210,19 @@ Walk this list before handing files over, and fix what fails. Report the outcome
 
 ## Generated Plugin Licensing
 
-The chosen scaffold decides the license of the plugin you produce. State it in the delivery notes instead of staying silent.
+State one line in the delivery notes. `references/licensing.md` holds the table and the edge cases.
 
-| Template used | License of the generated plugin | Reason |
-|---------------|--------------------------------|--------|
-| `official-native` | MIT | The official template is the minimal implementation of the documented plugin interface; implementing the same interface from the docs is not a derivative work, so the plugin is the author's own code under MIT |
-| `light-plugin` | MIT | The upstream light template is MIT and the plugin does not have to link OlivaDiceCore |
-| `rule-plugin` | AGPL-3.0 | A rule plugin links OlivaDiceCore, which is AGPL-3.0 — the distributed result must be AGPL-3.0 compatible |
+| Template | Generated plugin license |
+| --- | --- |
+| `official-native` | MIT — the template is the minimal implementation of the documented interface, so reimplementing it is not a derivative work |
+| `light-plugin` | MIT — MIT upstream, no OlivaDiceCore dependency |
+| `rule-plugin` | AGPL-3.0 — it links OlivaDiceCore, which is AGPL-3.0 |
 
-Adjustments:
+Never weaken a license the dependencies force; keep an existing plugin's license when modifying it.
 
-- If the user supplies a license, follow it — but never weaken a license the dependencies force.
-- If the work is derived from an existing plugin, keep that plugin's license.
-- If a plugin straddles two templates, apply the stricter license.
-- If large parts of upstream AGPL code were copied verbatim rather than reimplemented from the docs, keep AGPL for that plugin.
+## Quick Reference
 
-## Key OlivOS Concepts (Quick Reference)
-
-### Lifecycle Events
-
-```
-init          → Fires immediately after module import (ignores priority order)
-init_after    → Fires after ALL modules finish import (strict priority order)
-message/notify → Runtime events flow through plugins by priority
-save          → Fires when plugin is about to be reloaded (persistence)
-menu          → Fires when UI menu item is clicked (strict priority order)
-```
-
-All event callbacks: `def method_name(plugin_event, Proc):`
-
-### app.json Template
-
-`app.json` must be saved as UTF-8 without BOM. If writing it from PowerShell, use an explicit BOM-less encoder such as `[System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))` instead of Windows PowerShell 5.1 `-Encoding UTF8`. After creating or updating it, check the first bytes are not `EF BB BF`.
-
-```json
-{
-  "name": "PluginName",
-  "author": "Author",
-  "namespace": "YourPluginName",
-  "message_mode": "olivos_string",
-  "info": "Brief description",
-  "version": "1.0.0",
-  "svn": 1,
-  "compatible_svn": 190,
-  "priority": 30000,
-  "support": [
-    {"sdk": "onebot", "platform": "qq", "model": "all"},
-    {"sdk": "all", "platform": "all", "model": "all"}
-  ],
-  "menu_config": [
-    {"title": "Menu Title", "event": "YourPluginName_Menu_001"}
-  ]
-}
-```
-
-### Message Modes
-
-- `old_string`: CQ code `[CQ:type,key=value]` — CoolQ/OnebotV11 compatible
-- `olivos_string`: OP code `[OP:type,key=value]` — OlivOS cross-platform recommended
-- `olivos_para`: Message segment structs `OlivOS.messageAPI.Message_templet` — for complex multimodal messages
-
-### Active Message Send (No Event Context)
-
-```python
-import OlivOS
-
-def send_message_force(botHash, send_type, target_id, message, Proc, pluginName):
-    if Proc is not None and botHash in Proc.Proc_data['bot_info_dict']:
-        plugin_event = OlivOS.API.Event(
-            OlivOS.contentAPI.fake_sdk_event(
-                bot_info=Proc.Proc_data['bot_info_dict'][botHash],
-                fakename=pluginName
-            ),
-            Proc.log
-        )
-        plugin_event.send(send_type, target_id, message)
-```
+Lifecycle events, the `app.json` field table (which fields may change, and when), message modes, the no-event-context send helper, and priority ordering live in `references/quick-reference.md`. Read it when the task actually touches manifests, events, or message construction — not as background.
 
 ## Required Response Format
 

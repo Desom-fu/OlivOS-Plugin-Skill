@@ -66,7 +66,7 @@ Proc.get_plugin_list()
 ```python
 Proc.database
 ```
-`Proc.database`是一个内置的配置数据库，具体内容详见[用户配置数据库](/DevPlugin/UserModule/#_3)
+`Proc.database`是一个内置的配置数据库，具体内容详见[用户配置数据库](user-module.md#_3)
 
 ## 插件接口
 
@@ -113,7 +113,7 @@ if isinstance(context, dict):
 
 返回 `True` 表示已将回包投入控制队列，不代表浏览器已经收到。缺少 WebUI 上下文、命名空间或请求 ID 不匹配、没有控制队列时返回 `None`。
 
-宿主按浏览器会话、插件命名空间和请求 ID 路由回包，只将结果交给发出该请求的页面。不要自行复制 `session`、伪造事件或使用此接口广播给所有浏览器。完整前后端用法见 [WebUI 页面开发](WebUI.md)。
+宿主按浏览器会话、插件命名空间和请求 ID 路由回包，只将结果交给发出该请求的页面。不要自行复制 `session`、伪造事件或使用此接口广播给所有浏览器。完整前后端用法见 [WebUI 页面开发](webui.md)。
 
 
 ### 回复消息
@@ -1234,7 +1234,7 @@ plugin_event.indeAPI.send_message(
 ```
 
 支持平台为 QQ 官方机器人（`qqGuildv2_link`）。此接口可在消息事件和
-[按钮点击事件](Event.md#button-click) 中发送普通文本及平台支持的消息段，
+[按钮点击事件](event.md#button-click) 中发送普通文本及平台支持的消息段，
 通过 `plugin_event.indeAPI.hasAPI('send_message')` 判断接口是否存在。
 
 | 参数 | 类型 | 解释 | 缺省 |
@@ -1318,7 +1318,7 @@ QQ 官方 Markdown 消息结构提供了三个默认字段，各自对应：
 
 `keyboard`为 QQ 机器人官方按钮组件结构，形如`{'content': {'rows': [{'buttons': [...]}]}}`，其中按钮`action.permission.type`仅支持`0`（指定用户）、`1`（仅管理员）、`2`（所有人），不符合规范时会直接返回错误而不会发起请求；按钮的具体结构请参考[QQ 机器人官方文档-消息按钮](https://bot.q.qq.com/wiki/develop/api-v2/server-inter/message/trans/msg-btn.html)
 
-回调按钮（`action.type=1`）通过 [按钮点击事件](Event.md#button-click) 的 `Event.button_click`
+回调按钮（`action.type=1`）通过 [按钮点击事件](event.md#button-click) 的 `Event.button_click`
 交给插件处理，框架在后台安排 `code=0` 应答请求，不保证请求发出或成功；
 网络失败、超时或应答任务被丢弃时仍可能未应答。指令按钮（`action.type=2`）仍走普通消息事件。
 

@@ -42,6 +42,10 @@
 - `user-module.md`：`Proc.database` 用户配置数据库、用户/群/基础配置读写接口、`pkl` 使用规则，以及 IOStream 输入流说明。
 - `webui.md`：来自 `docs/DevPlugin/WebUI.md` 的插件 WebUI 开发接口文档，包含 `webui_config`、消息桥、`Event.menu` 请求处理、`send('webui', ...)` 回包、沙箱限制和打包要求；不是 `docs/User/WebUI.md` 使用指南。
 
+同步时会把这些文档里的相对链接规范化：同目录文档改成快照内的小写文件名，未收录的上游文档改成 GitHub 链接，站点路由指向 `https://doc.olivos.wiki`；文档引用的图片一并收进 `markdown/img/`。所以快照内没有死链，但**不要手工改快照里的链接**，要改就改 `scripts/sync_upstreams.py`。
+
+上游文档本身存在与源码不一致的地方（例如 `get_group_info` / `get_group_member_info` / `get_group_member_list` 的示例漏了必需参数），这类问题记在 `references/official-docs/ERRATA.md`，写代码时以目标版本源码的契约为准。
+
 ### 自动同步与打包
 
 每 30 分钟检查上游，也支持在 GitHub Actions 手动触发，以及收到 `desom-templates-updated` 事件时检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
@@ -111,6 +115,8 @@ skill 先判断该用哪套模板，判断完只读那一套，不会把三套�
 
 选定后的阅读顺序是 `app.json` → `__init__.py` → 事件入口文件（`main.py` 或 `msgReply.py`），此后只读当前需求真正会用到的文件。Light 模板里的 `gui.py`、`utils.py` 都是上千行的大模块，需要复用某个函数时按函数定位，不整文件铺开——读全三套模板既浪费上下文，也会把需求本身挤掉。
 
+Light 模板的 `gui.py`（桌面面板）与 `webui.py` + `webui/`（网页配置页）都是可选的。需求不需要界面时直接删掉，并移除 `app.json` 里对应的 `menu_config` / `webui_config`；`main.py` 对这两个模块的导入都做了保护，删掉不会导致插件加载失败。
+
 ## 本地安装（多客户端同步）
 
 仓库内的 `olivos-plugin-developer/` 是唯一真源，各客户端的个人 skill 目录都由脚本从该目录镜像同步，避免多份副本各自漂移。
@@ -171,7 +177,9 @@ python scripts/install_skill.py --skip workbuddy,dsh
 
 交付前逐条过一遍，不达标就改；最后用一句话汇报结论，不要把清单原样贴回去。
 
-- `app.json` 以 `{` 开头（无 BOM）、能解析，且只改了 `name` / `author` / `namespace` / `info` / `version` / `svn` 与菜单项
+- `app.json` 以 `{` 开头（无 BOM）且能解析
+- 只改了需求真正需要的字段：`name` / `info` / `version` / `svn` / `author` / `namespace` 随时可改；`priority` / `message_mode` / `compatible_svn` / `support` / `menu_config` / `webui_config` 在行为需要时才改，并在交付说明里写清理由
+- 不做界面的插件不带 `menu_config` / `webui_config`，模板里的 `gui.py` / `webui.py` / `webui/` 删掉而不是留着不用
 - `namespace` 与插件目录名逐字符一致
 - `__init__.py` 已 import 插件带的所有额外模块
 - `main.Event` 只保留需要的钩子，签名都是 `def method(plugin_event, Proc):`
@@ -264,9 +272,12 @@ skill 本体是 MIT。生成出来的插件按所用模板定许可证，交付�
 
 本次 skill 包含以下内容：
 
-- `SKILL.md`：skill 主说明、触发场景、模板决策树、需求澄清、交付自检、许可说明、响应格式和开发守则。
+- `SKILL.md`：skill 主说明、触发场景、模板决策树、需求澄清、交付自检、许可摘要、响应格式和开发守则。
 - `agents/openai.yaml`：界面展示名称、短描述和默认提示词。
-- `references/official-docs/`：OlivOS 官方开发文档 Markdown 快照及来源记录。
+- `references/official-docs/`：OlivOS 官方开发文档 Markdown 快照、图片、来源记录，以及 `ERRATA.md`（已知文档勘误）。
+- `references/quick-reference.md`：生命周期事件、`app.json` 字段表、消息模式、主动发送、优先级，按需查阅。
+- `references/opk-lifecycle.md`：OPK 解包目录清理与自带资源的加载时机。
+- `references/licensing.md`：按模板决定生成插件的许可证。
 - `assets/templates/official-native/`：官方最小插件模板。
 - `assets/templates/light-plugin/`：常规复杂插件模板。
 - `assets/templates/rule-plugin/`：OlivaDiceCore 规则插件模板。

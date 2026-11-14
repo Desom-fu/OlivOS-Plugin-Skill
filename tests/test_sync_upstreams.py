@@ -180,5 +180,52 @@ class SyncUpstreamsTest(unittest.TestCase):
         self.assertEqual(git(self.repo, 'status', '--porcelain'), '')
 
 
+
+class RewriteDocLinksTest(unittest.TestCase):
+    """快照里的相对链接必须是快照内可达的目标。
+
+    上游写 `WebUI.md` / `/DevPlugin/UserModule/#_3`，快照统一存小写；
+    在大小写敏感的文件系统上原样保留就是死链。
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location('sync_upstreams', SYNC_SCRIPT)
+        assert spec and spec.loader
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cls.rewrite = staticmethod(module.rewrite_doc_links)
+        cls.bundled = {'template.md', 'event.md', 'api.md', 'message.md', 'user-module.md', 'webui.md'}
+
+    def check(self, text: str) -> str:
+        return self.rewrite(text, self.bundled)
+
+    def test_lowercases_bundled_doc_targets(self) -> None:
+        self.assertEqual(self.check('[WebUI](WebUI.md)'), '[WebUI](webui.md)')
+        self.assertEqual(self.check('[API](API.md#qqguildv2-send-message)'), '[API](api.md#qqguildv2-send-message)')
+        self.assertEqual(self.check('[Event](./Event.md#button-click)'), '[Event](./event.md#button-click)')
+
+    def test_maps_site_routes_to_bundled_docs(self) -> None:
+        self.assertEqual(self.check('[x](/DevPlugin/UserModule/#_3)'), '[x](user-module.md#_3)')
+
+    def test_keeps_unknown_site_routes_as_absolute_urls(self) -> None:
+        self.assertEqual(
+            self.check('[x](/OlivOS_DevDoc_Plugin_API/#_3)'),
+            '[x](https://doc.olivos.wiki/OlivOS_DevDoc_Plugin_API/#_3)',
+        )
+
+    def test_points_unbundled_user_docs_at_upstream(self) -> None:
+        self.assertEqual(
+            self.check('[x](../User/WebUI.md#webui-configuration)'),
+            '[x](https://github.com/OlivOS-Team/OlivOSDoc/blob/main/docs/User/WebUI.md#webui-configuration)',
+        )
+
+    def test_leaves_images_and_external_links_alone(self) -> None:
+        for text in ('![senpai](img/senpai.png)', '[olivos](https://olivos.wiki)', '[anchor](#_3)'):
+            self.assertEqual(self.check(text), text)
+
+
 if __name__ == '__main__':
     unittest.main()
