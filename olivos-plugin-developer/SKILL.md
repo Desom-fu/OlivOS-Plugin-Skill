@@ -1,7 +1,7 @@
 ---
 name: olivos-plugin-developer
 description: "Create, modify, review, or explain OlivOS Python plugins from user requirements: plugin templates, framework events, plugin APIs, message formats, user modules, plugin WebUI pages, OlivaDiceCore integration, dice/TRPG rule plugins, character sheets, OPK packaging. 关键词：OlivOS 插件、插件模板、框架事件、插件 API、消息格式、WebUI 页面、OlivaDiceCore、青果骰、跑团插件、规则插件、人物卡、opk 打包。"
-version: 1.1.0
+version: 1.1.1
 author: Desom-fu
 license: MIT
 platforms: [linux, macos, windows]
@@ -235,15 +235,16 @@ The chosen scaffold decides the license of the plugin you produce. State it in t
 
 | Template used | License of the generated plugin | Reason |
 |---------------|--------------------------------|--------|
-| `official-native` | AGPL-3.0 | The upstream `OlivOS-Team/OlivOSPluginTemplate` is AGPL-3.0, so a plugin derived from that scaffold stays AGPL-3.0 |
+| `official-native` | MIT | The official template is the minimal implementation of the documented plugin interface; implementing the same interface from the docs is not a derivative work, so the plugin is the author's own code under MIT |
 | `light-plugin` | MIT | The upstream light template is MIT and the plugin does not have to link OlivaDiceCore |
-| `rule-plugin` | AGPL-3.0 | The template is MIT, but a rule plugin links OlivaDiceCore, which is AGPL-3.0 — the distributed result must be AGPL-3.0 compatible |
+| `rule-plugin` | AGPL-3.0 | A rule plugin links OlivaDiceCore, which is AGPL-3.0 — the distributed result must be AGPL-3.0 compatible |
 
 Adjustments:
 
 - If the user supplies a license, follow it — but never weaken a license the dependencies force.
 - If the work is derived from an existing plugin, keep that plugin's license.
 - If a plugin straddles two templates, apply the stricter license.
+- If large parts of upstream AGPL code were copied verbatim rather than reimplemented from the docs, keep AGPL for that plugin.
 
 ## Key OlivOS Concepts (Quick Reference)
 

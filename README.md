@@ -254,11 +254,11 @@ skill 本体是 MIT。生成出来的插件按所用模板定许可证，交付�
 
 | 模板 | 插件许可证 | 原因 |
 | --- | --- | --- |
-| `official-native` | AGPL-3.0 | 上游 `OlivOS-Team/OlivOSPluginTemplate` 是 AGPL-3.0，从它派生的插件保持 AGPL-3.0 |
+| `official-native` | MIT | 官方模板只是文档化插件接口的最小实现，照文档自行实现同一套接口不构成衍生作品，插件本体用 MIT |
 | `light-plugin` | MIT | 上游 Light 模板是 MIT，且插件不必链接 OlivaDiceCore |
-| `rule-plugin` | AGPL-3.0 | 模板本身是 MIT，但规则插件链接 AGPL-3.0 的 OlivaDiceCore，分发结果必须 AGPL-3.0 兼容 |
+| `rule-plugin` | AGPL-3.0 | 规则插件链接 AGPL-3.0 的 OlivaDiceCore，分发结果必须 AGPL-3.0 兼容 |
 
-用户自带许可证时按用户的，但不能弱化依赖强制要求的许可；在已有插件上二次修改时沿用它原来的许可证；跨两套模板时取更严格的那个。
+用户自带许可证时按用户的，但不能弱化依赖强制要求的许可；在已有插件上二次修改时沿用它原来的许可证；跨两套模板时取更严格的那个；如果确实大段照抄了上游 AGPL 代码而不是照文档重写，那个插件就沿用 AGPL。
 
 ## 发布清单
 
