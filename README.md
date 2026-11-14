@@ -2,7 +2,7 @@
 
 ## 概述
 
-`olivos-plugin-developer` 是面向 OlivOS Python 插件开发的 Codex skill。它用于根据用户需求创建、修改、审查或解释 OlivOS 插件，尤其适合 OlivOS 插件模板、框架事件、插件 API、消息格式、用户模块、OlivaDiceCore 集成、跑团规则插件和 QQ 机器人插件开发场景。
+`olivos-plugin-developer` 是面向 OlivOS Python 插件开发的 Agent skill（Codex、Claude Code、omp、WorkBuddy 等客户端通用）。它用于根据用户需求创建、修改、审查或解释 OlivOS 插件，尤其适合 OlivOS 插件模板、框架事件、插件 API、消息格式、用户模块、OlivaDiceCore 集成、跑团规则插件和 QQ 机器人插件开发场景。
 
 该 skill 的核心原则是“以本地资料为准”。在生成插件代码前，它会优先参考随 skill 打包的 OlivOS 官方文档快照和三套本地模板，避免凭记忆臆造 API、事件、消息结构或 OlivaDiceCore 扩展点。
 
@@ -44,8 +44,7 @@
 
 ### 自动同步与打包
 
-每 6 小时检查上游，收到 `desom-templates-updated` 事件时也会检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
-每 30 分钟检查上游，支持在 GitHub Actions 手动触发，收到 `desom-templates-updated` 事件时也会检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
+每 30 分钟检查上游，也支持在 GitHub Actions 手动触发，以及收到 `desom-templates-updated` 事件时检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
 
 只有收录的文档或模板实际内容变化时，自动同步才会提交、打包并更新 release。上游仅增加提交、修改其他文件或改变 commit hash/日期时，不更新来源记录、不打包。`SOURCES.md` 记录最近一次快照内容更新时的上游版本，文档与模板分别判断；自动变更检测会忽略这两份来源记录，并识别尚未跟踪的新增文件。普通 push 也不会因只有来源记录变化而打包；手动触发打包工作流仍可重建 release。
 
@@ -104,11 +103,13 @@
 
 ## 模板选择规则
 
-skill 会选择“足够完成需求的最轻模板”：
+skill 先判断该用哪套模板，判断完只读那一套，不会把三套模板都通读：
 
 - 无 OlivaDiceCore 依赖，功能极简，命令少于 3 个或只需简单 WebUI，且没有桌面 GUI 或复杂存储：选择 Official Native。
 - 可以独立运行，但包含多命令、配置、GUI、存储、自定义回复或权限管理：选择 Light Plugin。
 - 强依赖 OlivaDiceCore，涉及 TRPG 规则、人物卡、自定义回复注入或骰系生态：选择 Rule Plugin。
+
+选定后的阅读顺序是 `app.json` → `__init__.py` → 事件入口文件（`main.py` 或 `msgReply.py`），此后只读当前需求真正会用到的文件。Light 模板里的 `gui.py`、`utils.py` 都是上千行的大模块，需要复用某个函数时按函数定位，不整文件铺开——读全三套模板既浪费上下文，也会把需求本身挤掉。
 
 ## 本地安装（多客户端同步）
 
@@ -136,6 +137,8 @@ python scripts/install_skill.py --skip workbuddy,dsh
 | WorkBuddy | `~/.workbuddy/skills/` |
 | DSH | `~/.dsh/skills/` |
 | QoderWork CN | `~/.qoderworkcn/skills/` |
+| QoderWork 国际版 | `~/.qoder/skills/` |
+| Oh My Pi（omp） | `~/.omp/agent/skills/` |
 
 覆盖旧副本前会先把它移到系统临时目录备份；安装完成后逐文件比对 SHA-256，缺失、多余或内容不一致都会把该客户端标记为 `FAIL` 并以非零退出码结束。
 
@@ -156,14 +159,43 @@ python scripts/install_skill.py --skip workbuddy,dsh
 
 当需求不完整时，skill 只会询问避免错误实现所必需的最少信息，例如插件名称、是否依赖 OlivaDiceCore、命令格式或数据是否需要持久化。
 
+## 需求澄清
+
+写第一行代码之前先问清楚：缺什么问什么，用户已经说过的绝不重复问，也不要拿「别的插件一般这么做」去填补空白。一次把缺口列成清单问完，不要一问一答挤牙膏。
+
+通常要对齐的内容：目标（一句话）｜每条触发的具体行为、步骤与用户看到的结果｜指令原文（前后缀、是否要 @、参数分隔符，最好给一条真实示例消息）｜触发点（群聊、私聊、生命周期事件、菜单、WebUI 页面动作）｜权限｜数据（存什么、按什么维度、保留多久、满了怎么办）｜输出形态（纯文本、多段、图片、合并转发、WebUI 回包）｜素材位置与归属｜是否依赖 OlivaDiceCore｜批量或不可逆动作的量级｜交付形式（完整目录、`.opk`、单文件补丁，还是只审查）｜插件英文名。
+
+遇到下面任一情况停下来问，不许自行假设：描述含糊（「大概」「应该」「差不多」）或前后矛盾；指令原文没给却要求特定文案；需要的能力不在自带文档里；会动到用户已有数据；涉及批量、高频或不可逆动作而量级未定；用户在「改数据、改权限、别人能看到什么」这类事上让你自己定——那就给出一个具体方案让他点头，不要默默选。问的是功能和行为，不是抽象口味，也不是服务器或部署层怎么装。
+
+## 交付自检
+
+交付前逐条过一遍，不达标就改；最后用一句话汇报结论，不要把清单原样贴回去。
+
+- `app.json` 以 `{` 开头（无 BOM）、能解析，且只改了 `name` / `author` / `namespace` / `info` / `version` / `svn` 与菜单项
+- `namespace` 与插件目录名逐字符一致
+- `__init__.py` 已 import 插件带的所有额外模块
+- `main.Event` 只保留需要的钩子，签名都是 `def method(plugin_event, Proc):`
+- 用到的 API、事件、`plugin_event` 字段、消息结构都能在自带文档或模板里找到
+- 消息按 `app.json` 的 `message_mode` 构造（`old_string` 用 CQ 码，`olivos_string` 用 OP 码，`olivos_para` 用消息段）
+- 会真实失败的 I/O、HTTP、绘制、线程循环都做了保护并向用户反馈，没有 `except: pass`
+- 没有过度防御：无重复校验、无不可能到达的分支、无无意义兜底
+- 无关消息静默 `return`；只有用户主动触发但条件不满足时才回复
+- 权限走文档化接口，业务逻辑里没有硬编码 ID 列表
+- 数据有增长上限，不在消息热路径上全量读大文件
+- 批量或重复动作串行执行，间隔用用户确认过的数值
+- OPK 场景：自带资源在宿主清理临时目录前就已载入，运行期不读 `plugin/tmp`
+- WebUI：注册了 `webui_config`，校验 namespace 与 `request_id`，回包走 `send('webui', ...)`
+- 交付 `.opk` 时跑过 `python scripts/package_opk.py <插件目录> --check-only`
+- 答复里写清文件树、配置路径、依赖、许可证，以及用户怎么验证
+
 ## 输出规范
 
 当用户提供具体插件需求时，skill 的最终回答固定包含：
 
-1. `需求分析`：概括核心行为与重要约束。
-2. `模板选择`：说明选择哪套模板，以及为什么它是最轻合适选择。
+1. `需求分析`：概括核心行为与重要约束，以及不得不做的那条假设。
+2. `模板选择`：说明选择哪套模板、为什么它是最轻合适选择，以及由此决定的插件许可证。
 3. `代码实现`：给出完整文件树和核心代码。
-4. `部署说明`：说明配置路径、依赖、运行注意事项和验证步骤。
+4. `部署说明`：说明配置路径、依赖、运行注意事项、交付 `.opk` 时的打包命令，以及验证步骤。
 
 默认使用中文回答。生成代码面向 Python 3.11，并遵守模板中的 flake8 和 Ruff 约束。
 
@@ -171,10 +203,10 @@ python scripts/install_skill.py --skip workbuddy,dsh
 
 - 只使用本地文档、模板、官方来源或用户本地项目中确证存在的 API。
 - 不臆造 OlivOS 事件、`plugin_event` 方法、消息段结构或 OlivaDiceCore 接口。
-- 写插件前必须先读取所选模板的实际文件，再改名、替换 namespace 和实现业务。
+- 先判断用哪套模板，再只读取该模板的实际文件，然后改名、替换 namespace 和实现业务。
 - `app.json` 需要维护正确的 `namespace`、`message_mode`、`compatible_svn`、`priority`、`support` 和菜单事件。
 - 事件入口必须放在插件命名空间下的 `main.Event` 类中，签名为 `def method_name(plugin_event, Proc):`。
-- 文件 I/O、网络请求、配置读写和消息解析应使用 `try/except` 隔离错误，避免插件异常拖垮 OlivOS 宿主。
+- 文件 I/O、网络请求、绘图、定时线程循环这类真实会失败的地方用 `try/except` 隔离并向用户反馈，不写 `except: pass`，也不做过度防御。
 - 消息处理应按 `message_mode` 使用对应格式：CQ 码、OP 码或 OlivOS 消息段。
 - `Proc.database` 适合轻量配置项，不适合作为高频大体量业务数据存储。
 - 涉及 OlivaDiceCore 时，只使用模板或源代码中已有的扩展点与函数。
@@ -202,21 +234,47 @@ light 模板进一步约定：
 
 生成代码应保持导入有序、避免无用 import，注释应简洁说明生命周期、配置、消息解析、权限和持久化行为。
 
+防御只写在真的会失败、而且失败要让用户知道的地方：文件与 JSON 读写、HTTP / OneBot 接口调用（含返回状态检查）、图片绘制与字体加载、定时线程的循环体、批量任务里的单条失败。反过来，`except: pass` 到处套、同一份输入反复校验、`if x is None: x = {}` 这类无意义兜底、永远走不到的分支、以及给不可能失败的调用套 `try`，都是噪声，不写。判断标准只有一句：这里真的会失败吗？失败了需要我知道吗？两个都「是」才写防御。
+
+## OPK 打包
+
+`.opk` 就是把插件目录里的文件**平铺**打进 zip（不套外层文件夹）再改后缀，和官方模板 CI 的做法一致。skill 自带打包脚本 `scripts/package_opk.py`，不要手搓 zip：
+
+```bash
+python scripts/package_opk.py <插件目录>                  # 输出到当前目录：<插件目录名>.opk
+python scripts/package_opk.py <插件目录> -o dist --sha256  # 输出到 dist/ 并生成 .sha256
+python scripts/package_opk.py <插件目录> --check-only      # 只校验，不产出压缩包
+```
+
+脚本会按官方要求拦住这些问题：`app.json` 带 BOM、不是合法 JSON、缺 `namespace`、`namespace` 与目录名不一致（警告）、缺少 `app.json` / `__init__.py` / `main.py`、把插件套进外层文件夹、把 `__pycache__`、`.git`、`*.pyc`、`*.bak`、旧 `.opk`/`.zip` 打进去。写完还会重新打开压缩包复核一遍平坦结构与必需文件，避免「打包成功但装不上」。
+
+## 许可
+
+skill 本体是 MIT。生成出来的插件按所用模板定许可证，交付说明里要写明：
+
+| 模板 | 插件许可证 | 原因 |
+| --- | --- | --- |
+| `official-native` | AGPL-3.0 | 上游 `OlivOS-Team/OlivOSPluginTemplate` 是 AGPL-3.0，从它派生的插件保持 AGPL-3.0 |
+| `light-plugin` | MIT | 上游 Light 模板是 MIT，且插件不必链接 OlivaDiceCore |
+| `rule-plugin` | AGPL-3.0 | 模板本身是 MIT，但规则插件链接 AGPL-3.0 的 OlivaDiceCore，分发结果必须 AGPL-3.0 兼容 |
+
+用户自带许可证时按用户的，但不能弱化依赖强制要求的许可；在已有插件上二次修改时沿用它原来的许可证；跨两套模板时取更严格的那个。
+
 ## 发布清单
 
 本次 skill 包含以下内容：
 
-- `SKILL.md`：skill 主说明、触发场景、模板决策树、响应格式和开发守则。
+- `SKILL.md`：skill 主说明、触发场景、模板决策树、需求澄清、交付自检、许可说明、响应格式和开发守则。
 - `agents/openai.yaml`：界面展示名称、短描述和默认提示词。
 - `references/official-docs/`：OlivOS 官方开发文档 Markdown 快照及来源记录。
 - `assets/templates/official-native/`：官方最小插件模板。
 - `assets/templates/light-plugin/`：常规复杂插件模板。
 - `assets/templates/rule-plugin/`：OlivaDiceCore 规则插件模板。
-- `RELEASE.zh-CN.md`：中文发布文档。
+- `scripts/package_opk.py`：按官方格式打包 `.opk`，附带校验与回归测试。
 
 ## 已知边界
 
 - 在线文档只作为缺失或刷新本地资料时的后备来源。
 - 如果用户需求依赖未收录、未验证或项目中不存在的接口，skill 会说明缺口，并给出最接近的安全实现路径。
 - 对强平台特性的 OneBot 扩展接口，应按文档中的支持平台与协议说明处理兼容性。
-- OPK 打包本质是插件源码目录 zip 后改后缀为 `.opk`，具体 CI 流程应参考官方模板工作流。
+- 打包脚本只负责格式与清单校验（平坦结构、BOM、必需文件、排除项），不代替在宿主里实际加载插件验证。
