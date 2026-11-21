@@ -164,6 +164,21 @@ One question decides it: **can this really fail, and do I need to know when it d
 
 When the plugin ships its own static resources or is delivered as an `.opk`, read `references/opk-lifecycle.md` first: the unpacked directory is deleted between `init` and `init_after`, so resources must be loaded into memory or released through `data/` before that happens.
 
+### qqGuildv2 Markdown vs. Plain Rich Media
+
+OlivOS lets quoted image+text messages go out as Markdown cards (`msg_type=2` with `message_reference`). Older QQ clients drop all Markdown formatting and images, and may render the quoted content twice — so an "image + text + native quote" reply that used to fall back to plain rich media now degrades for those users.
+
+When a plugin needs a real quote (not a fabricated `> <qqbot-at-user ...>` line), special-case `qqGuildv2` and send through the adapter with Markdown off:
+
+```python
+if plugin_event.platform.get('sdk') == 'qqGuildv2_link' and has_image_segment(text):
+    ea = OlivOS.qqGuildv2SDK.event_action
+    msg = ea._normalize_outgoing_message(plugin_event, text)
+    ea.send_qq_msg(plugin_event, chat_id, msg, allow_markdown=False)  # flag_direct=True for C2C
+```
+
+`allow_markdown=False` keeps `message_reference` (the native quote) while the message goes out as plain text plus image messages. Keep text-only replies on `plugin_event.reply()` so standard send logging and recall keep working, and fall back to `plugin_event.reply()` if the direct call raises. Only fabricate a quote line when the plugin already sends Markdown cards; plain-text plugins should not give up the native quote.
+
 ## Step 3 — Package as OPK
 
 An OPK is the plugin directory zipped with the **plugin files at the archive root** — no wrapping folder — then renamed from `.zip` to `.opk`. Run the bundled packer instead of zipping by hand:
