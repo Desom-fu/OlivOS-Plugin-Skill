@@ -52,7 +52,7 @@ class SyncUpstreamsTest(unittest.TestCase):
             git(repo, 'init', '-q')
             git(repo, 'config', 'core.autocrlf', 'false')
 
-        for name in ('Template', 'Event', 'API', 'Message', 'UserModule', 'WebUI'):
+        for name in ('Template', 'Event', 'API', 'Message', 'UserModule', 'WebUI', 'Schedule'):
             write_file(self.docs / 'docs' / 'DevPlugin' / f'{name}.md', f'# Developer {name}\n')
         write_file(self.docs / 'docs' / 'User' / 'WebUI.md', '# User guide; do not bundle\n')
         (self.docs_target / 'markdown').mkdir(parents=True)
@@ -92,6 +92,13 @@ class SyncUpstreamsTest(unittest.TestCase):
         )
         self.assertEqual((self.webui_target / 'index.html').read_text(encoding='utf-8'), '<p>WebUI</p>\n')
         self.assertIn(b'webui.md: docs/DevPlugin/WebUI.md', self.sources()[0])
+
+    def test_bundles_schedule_document(self) -> None:
+        self.assertEqual(
+            (self.docs_target / 'markdown' / 'schedule.md').read_text(encoding='utf-8'),
+            '# Developer Schedule\n',
+        )
+        self.assertIn(b'schedule.md: docs/DevPlugin/Schedule.md', self.sources()[0])
 
     def test_repeated_sync_leaves_no_changes(self) -> None:
         before = self.sources()
@@ -197,7 +204,10 @@ class RewriteDocLinksTest(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         cls.rewrite = staticmethod(module.rewrite_doc_links)
-        cls.bundled = {'template.md', 'event.md', 'api.md', 'message.md', 'user-module.md', 'webui.md'}
+        cls.bundled = {
+            'template.md', 'event.md', 'api.md', 'message.md',
+            'user-module.md', 'webui.md', 'schedule.md',
+        }
 
     def check(self, text: str) -> str:
         return self.rewrite(text, self.bundled)
@@ -206,6 +216,7 @@ class RewriteDocLinksTest(unittest.TestCase):
         self.assertEqual(self.check('[WebUI](WebUI.md)'), '[WebUI](webui.md)')
         self.assertEqual(self.check('[API](API.md#qqguildv2-send-message)'), '[API](api.md#qqguildv2-send-message)')
         self.assertEqual(self.check('[Event](./Event.md#button-click)'), '[Event](./event.md#button-click)')
+        self.assertEqual(self.check('[定时](Schedule.md)'), '[定时](schedule.md)')
 
     def test_maps_site_routes_to_bundled_docs(self) -> None:
         self.assertEqual(self.check('[x](/DevPlugin/UserModule/#_3)'), '[x](user-module.md#_3)')
@@ -220,6 +231,16 @@ class RewriteDocLinksTest(unittest.TestCase):
         self.assertEqual(
             self.check('[x](../User/WebUI.md#webui-configuration)'),
             '[x](https://github.com/OlivOS-Team/OlivOSDoc/blob/main/docs/User/WebUI.md#webui-configuration)',
+        )
+
+    def test_points_unbundled_same_dir_docs_at_upstream(self) -> None:
+        self.assertEqual(
+            self.check('[x](Note.md)'),
+            '[x](https://github.com/OlivOS-Team/OlivOSDoc/blob/main/docs/DevPlugin/Note.md)',
+        )
+        self.assertEqual(
+            self.check('[x](./Note.md#_3)'),
+            '[x](https://github.com/OlivOS-Team/OlivOSDoc/blob/main/docs/DevPlugin/Note.md#_3)',
         )
 
     def test_leaves_images_and_external_links_alone(self) -> None:

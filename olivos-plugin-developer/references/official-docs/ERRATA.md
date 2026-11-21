@@ -27,7 +27,7 @@
 ## 3. 快照内的链接已规范化
 
 `references/official-docs/markdown/` 里的文档名是小写，上游写的是 `WebUI.md`、
-`API.md`、`/DevPlugin/UserModule/#_3` 这类大小写敏感或站内路由的写法。
+`API.md`、`Schedule.md`、`/DevPlugin/UserModule/#_3` 这类大小写敏感或站内路由的写法。
 同步脚本会把这些链接改写成快照内可达的目标（未收录的文档指向上游 GitHub，
 站内路由指向 `https://doc.olivos.wiki`），所以**不要手工修改快照文件的链接**——
 下次同步会被覆盖，要改就改 `scripts/sync_upstreams.py`。

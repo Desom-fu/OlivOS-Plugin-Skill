@@ -13,7 +13,7 @@
 - 基于 light plugin 模板实现常规复杂插件，包括多命令、配置、GUI、持久化、自定义回复词和权限控制。
 - 基于 rule plugin 模板实现强依赖 OlivaDiceCore 的 TRPG 规则扩展、人物卡或骰系行为。
 - 审查现有 OlivOS 插件是否遵守事件入口、消息格式、配置读写和异常隔离约束。
-- 解释 OlivOS 插件结构、生命周期事件、消息模式、用户配置数据库和主动发消息方式。
+- 解释 OlivOS 插件结构、生命周期事件、消息模式、用户配置数据库、主动发消息方式和定时任务。
 
 ## 论坛发布链接
 
@@ -41,6 +41,7 @@
 - `message.md`：`old_string`、`olivos_string`、`olivos_para` 三种消息模式，以及 OP/CQ 码、转义规则、图片、语音、回复、at、合并转发等消息类型。
 - `user-module.md`：`Proc.database` 用户配置数据库、用户/群/基础配置读写接口、`pkl` 使用规则，以及 IOStream 输入流说明。
 - `webui.md`：来自 `docs/DevPlugin/WebUI.md` 的插件 WebUI 开发接口文档，包含 `webui_config`、消息桥、`Event.menu` 请求处理、`send('webui', ...)` 回包、沙箱限制和打包要求；不是 `docs/User/WebUI.md` 使用指南。
+- `schedule.md`：来自 `docs/DevPlugin/Schedule.md` 的插件定时任务接口，包含 `scheduleAPI.interval` / `cron` / `date` 声明方式、回调签名、时区规则和重载语义；不要在插件里自建定时线程，也不要在 `app.json` 里注册这些任务。
 
 同步时会把这些文档里的相对链接规范化：同目录文档改成快照内的小写文件名，未收录的上游文档改成 GitHub 链接，站点路由指向 `https://doc.olivos.wiki`；文档引用的图片一并收进 `markdown/img/`。所以快照内没有死链，但**不要手工改快照里的链接**，要改就改 `scripts/sync_upstreams.py`。
 
@@ -48,7 +49,7 @@
 
 ### 自动同步与打包
 
-每 30 分钟检查上游，也支持在 GitHub Actions 手动触发，以及收到 `desom-templates-updated` 事件时检查。同步范围包括上述 6 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
+每 30 分钟检查上游，也支持在 GitHub Actions 手动触发，以及收到 `desom-templates-updated` 事件时检查。同步范围包括上述 7 份开发文档、已收录的模板文件、官方模板 `OlivOSPluginTemplate/webui/` 下的网页资源，以及 Light 模板的 `YourPluginName/webui.py` 和 `YourPluginName/webui/`（包含新增文件）。
 
 只有收录的文档或模板实际内容变化时，自动同步才会提交、打包并更新 release。上游仅增加提交、修改其他文件或改变 commit hash/日期时，不更新来源记录、不打包。`SOURCES.md` 记录最近一次快照内容更新时的上游版本，文档与模板分别判断；自动变更检测会忽略这两份来源记录，并识别尚未跟踪的新增文件。普通 push 也不会因只有来源记录变化而打包；手动触发打包工作流仍可重建 release。
 
@@ -169,8 +170,7 @@ python scripts/install_skill.py --skip workbuddy,dsh
 
 写第一行代码之前先问清楚：缺什么问什么，用户已经说过的绝不重复问，也不要拿「别的插件一般这么做」去填补空白。一次把缺口列成清单问完，不要一问一答挤牙膏。
 
-通常要对齐的内容：目标（一句话）｜每条触发的具体行为、步骤与用户看到的结果｜指令原文（前后缀、是否要 @、参数分隔符，最好给一条真实示例消息）｜触发点（群聊、私聊、生命周期事件、菜单、WebUI 页面动作）｜权限｜数据（存什么、按什么维度、保留多久、满了怎么办）｜输出形态（纯文本、多段、图片、合并转发、WebUI 回包）｜素材位置与归属｜是否依赖 OlivaDiceCore｜批量或不可逆动作的量级｜交付形式（完整目录、`.opk`、单文件补丁，还是只审查）｜插件英文名。
-
+通常要对齐的内容：目标（一句话）｜每条触发的具体行为、步骤与用户看到的结果｜指令原文（前后缀、是否要 @、参数分隔符，最好给一条真实示例消息）｜触发点（群聊、私聊、生命周期事件、菜单、WebUI 页面动作、定时任务）｜权限｜数据（存什么、按什么维度、保留多久、满了怎么办）｜输出形态（纯文本、多段、图片、合并转发、WebUI 回包）｜素材位置与归属｜是否依赖 OlivaDiceCore｜批量或不可逆动作的量级｜交付形式（完整目录、`.opk`、单文件补丁，还是只审查）｜插件英文名。
 遇到下面任一情况停下来问，不许自行假设：描述含糊（「大概」「应该」「差不多」）或前后矛盾；指令原文没给却要求特定文案；需要的能力不在自带文档里；会动到用户已有数据；涉及批量、高频或不可逆动作而量级未定；用户在「改数据、改权限、别人能看到什么」这类事上让你自己定——那就给出一个具体方案让他点头，不要默默选。问的是功能和行为，不是抽象口味，也不是服务器或部署层怎么装。
 
 ## 交付自检
@@ -182,7 +182,7 @@ python scripts/install_skill.py --skip workbuddy,dsh
 - 不做界面的插件不带 `menu_config` / `webui_config`，模板里的 `gui.py` / `webui.py` / `webui/` 删掉而不是留着不用
 - `namespace` 与插件目录名逐字符一致
 - `__init__.py` 已 import 插件带的所有额外模块
-- `main.Event` 只保留需要的钩子，签名都是 `def method(plugin_event, Proc):`
+- `main.Event` 只保留需要的钩子。普通事件签名是 `def method(plugin_event, Proc):`；定时任务回调是 `def method(Proc):`，`@staticmethod` 包在 `@scheduleAPI.*` 外面
 - 用到的 API、事件、`plugin_event` 字段、消息结构都能在自带文档或模板里找到
 - 消息按 `app.json` 的 `message_mode` 构造（`old_string` 用 CQ 码，`olivos_string` 用 OP 码，`olivos_para` 用消息段）
 - 会真实失败的 I/O、HTTP、绘制、线程循环都做了保护并向用户反馈，没有 `except: pass`
@@ -193,6 +193,7 @@ python scripts/install_skill.py --skip workbuddy,dsh
 - 批量或重复动作串行执行，间隔用用户确认过的数值
 - OPK 场景：自带资源在宿主清理临时目录前就已载入，运行期不读 `plugin/tmp`
 - WebUI：注册了 `webui_config`，校验 namespace 与 `request_id`，回包走 `send('webui', ...)`
+- 定时任务：走 `scheduleAPI` 而不是插件线程，`id` 唯一，不传 `timezone=`；有副作用的操作自行持久化，避免重载重复执行
 - 交付 `.opk` 时跑过 `python scripts/package_opk.py <插件目录> --check-only`
 - 答复里写清文件树、配置路径、依赖、许可证，以及用户怎么验证
 
@@ -213,8 +214,8 @@ python scripts/install_skill.py --skip workbuddy,dsh
 - 不臆造 OlivOS 事件、`plugin_event` 方法、消息段结构或 OlivaDiceCore 接口。
 - 先判断用哪套模板，再只读取该模板的实际文件，然后改名、替换 namespace 和实现业务。
 - `app.json` 需要维护正确的 `namespace`、`message_mode`、`compatible_svn`、`priority`、`support` 和菜单事件。
-- 事件入口必须放在插件命名空间下的 `main.Event` 类中，签名为 `def method_name(plugin_event, Proc):`。
-- 文件 I/O、网络请求、绘图、定时线程循环这类真实会失败的地方用 `try/except` 隔离并向用户反馈，不写 `except: pass`，也不做过度防御。
+- 事件入口必须放在插件命名空间下的 `main.Event` 类中。普通事件签名为 `def method_name(plugin_event, Proc):`；定时任务回调签名为 `def method_name(Proc):`，用 `scheduleAPI` 声明，不要自己起定时线程。
+- 文件 I/O、网络请求、绘图、定时回调里的 I/O 这类真实会失败的地方用 `try/except` 隔离并向用户反馈，不写 `except: pass`，也不做过度防御。
 - 消息处理应按 `message_mode` 使用对应格式：CQ 码、OP 码或 OlivOS 消息段。
 - `Proc.database` 适合轻量配置项，不适合作为高频大体量业务数据存储。
 - 涉及 OlivaDiceCore 时，只使用模板或源代码中已有的扩展点与函数。
@@ -242,7 +243,7 @@ light 模板进一步约定：
 
 生成代码应保持导入有序、避免无用 import，注释应简洁说明生命周期、配置、消息解析、权限和持久化行为。
 
-防御只写在真的会失败、而且失败要让用户知道的地方：文件与 JSON 读写、HTTP / OneBot 接口调用（含返回状态检查）、图片绘制与字体加载、定时线程的循环体、批量任务里的单条失败。反过来，`except: pass` 到处套、同一份输入反复校验、`if x is None: x = {}` 这类无意义兜底、永远走不到的分支、以及给不可能失败的调用套 `try`，都是噪声，不写。判断标准只有一句：这里真的会失败吗？失败了需要我知道吗？两个都「是」才写防御。
+防御只写在真的会失败、而且失败要让用户知道的地方：文件与 JSON 读写、HTTP / OneBot 接口调用（含返回状态检查）、图片绘制与字体加载、定时回调里的 I/O、批量任务里的单条失败。反过来，`except: pass` 到处套、同一份输入反复校验、`if x is None: x = {}` 这类无意义兜底、永远走不到的分支、以及给不可能失败的调用套 `try`，都是噪声，不写。判断标准只有一句：这里真的会失败吗？失败了需要我知道吗？两个都「是」才写防御。
 
 ## OPK 打包
 
@@ -275,7 +276,7 @@ skill 本体是 MIT。生成出来的插件按所用模板定许可证，交付�
 - `SKILL.md`：skill 主说明、触发场景、模板决策树、需求澄清、交付自检、许可摘要、响应格式和开发守则。
 - `agents/openai.yaml`：界面展示名称、短描述和默认提示词。
 - `references/official-docs/`：OlivOS 官方开发文档 Markdown 快照、图片、来源记录，以及 `ERRATA.md`（已知文档勘误）。
-- `references/quick-reference.md`：生命周期事件、`app.json` 字段表、消息模式、主动发送、优先级，按需查阅。
+- `references/quick-reference.md`：生命周期事件、`app.json` 字段表、消息模式、主动发送、优先级、定时任务声明，按需查阅。
 - `references/opk-lifecycle.md`：OPK 解包目录清理与自带资源的加载时机。
 - `references/licensing.md`：按模板决定生成插件的许可证。
 - `assets/templates/official-native/`：官方最小插件模板。

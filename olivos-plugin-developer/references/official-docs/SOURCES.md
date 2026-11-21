@@ -14,6 +14,7 @@ Documents:
 - api.md: docs/DevPlugin/API.md
 - event.md: docs/DevPlugin/Event.md
 - message.md: docs/DevPlugin/Message.md
+- schedule.md: docs/DevPlugin/Schedule.md
 - template.md: docs/DevPlugin/Template.md
 - user-module.md: docs/DevPlugin/UserModule.md
 - webui.md: docs/DevPlugin/WebUI.md

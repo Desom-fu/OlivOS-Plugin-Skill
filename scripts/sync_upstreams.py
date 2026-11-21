@@ -17,6 +17,7 @@ DOC_MAPPINGS = {
     'Message': 'message',
     'UserModule': 'user-module',
     'WebUI': 'webui',
+    'Schedule': 'schedule',
 }
 
 # 站点绝对路径（mkdocs 目录式 URL）与上游仓库里的相对链接，在快照里都要改成可点的目标：
@@ -132,8 +133,12 @@ def rewrite_doc_links(text: str, bundled_names: set[str]) -> str:
 
         local_prefix = './' if path.startswith('./') else ''
         candidate = path[len(local_prefix):]
-        if '/' not in candidate and candidate.lower() in bundled_names:
-            return f'{prefix}{local_prefix}{candidate.lower()}{tail}{suffix}'
+        if '/' not in candidate:
+            lowered = candidate.lower()
+            if lowered in bundled_names:
+                return f'{prefix}{local_prefix}{lowered}{tail}{suffix}'
+            if lowered.endswith('.md'):
+                return f'{prefix}{UPSTREAM_DOCS_BLOB}/DevPlugin/{candidate}{tail}{suffix}'
 
         return match.group(0)
 

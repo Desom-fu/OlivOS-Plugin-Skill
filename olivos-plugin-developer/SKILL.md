@@ -1,7 +1,7 @@
 ---
 name: olivos-plugin-developer
-description: "Create, modify, review, or explain OlivOS Python plugins from user requirements: plugin templates, framework events, plugin APIs, message formats, user modules, plugin WebUI pages, OlivaDiceCore integration, dice/TRPG rule plugins, character sheets, OPK packaging. 关键词：OlivOS 插件、插件模板、框架事件、插件 API、消息格式、WebUI 页面、OlivaDiceCore、青果骰、跑团插件、规则插件、人物卡、opk 打包。"
-version: 1.2.0
+description: "Create, modify, review, or explain OlivOS Python plugins from user requirements: plugin templates, framework events, plugin APIs, message formats, user modules, plugin WebUI pages, scheduled tasks, OlivaDiceCore integration, dice/TRPG rule plugins, character sheets, OPK packaging. 关键词：OlivOS 插件、插件模板、框架事件、插件 API、消息格式、WebUI 页面、定时任务、OlivaDiceCore、青果骰、跑团插件、规则插件、人物卡、opk 打包。"
+version: 1.3.0
 author: Desom-fu
 license: MIT
 platforms: [linux, macos, windows]
@@ -23,7 +23,7 @@ Use **only** APIs, classes, methods, events, message formats, and module interfa
 
 ### Bundled Local Documentation (Primary Reference)
 
-`references/official-docs/markdown/` holds the upstream snapshot: `template.md` (structure, `app.json`, OPK), `event.md` (framework events), `api.md` (`plugin_event` / `Proc`), `message.md` (message modes), `user-module.md` (`Proc.database`), `webui.md` (plugin WebUI). Source commit: `references/official-docs/SOURCES.md`.
+`references/official-docs/markdown/` holds the upstream snapshot: `template.md` (structure, `app.json`, OPK), `event.md` (framework events), `api.md` (`plugin_event` / `Proc`), `message.md` (message modes), `user-module.md` (`Proc.database`), `webui.md` (plugin WebUI), `schedule.md` (`scheduleAPI` interval/cron/date). Source commit: `references/official-docs/SOURCES.md`.
 
 The snapshot is verbatim upstream, **which does not make its examples runnable**. When a documented signature, argument list, or example conflicts with the target version's source, trust the source. `references/official-docs/ERRATA.md` lists known disagreements — add to it instead of quietly coding around one.
 
@@ -67,7 +67,7 @@ What is normally worth pinning down (skip whatever the user already stated):
 | Goal | What problem the plugin solves, in one sentence |
 | Behavior | What happens on each trigger, step by step, and what the user sees |
 | Command text | The trigger strings verbatim — prefixes, whether a mention is required, argument separators, wrapper symbols. Ask for one real example message instead of describing the format. |
-| Trigger points | Group message / private message / lifecycle event (join, leave, recall, poke) / menu item / WebUI page action |
+| Trigger points | Group message / private message / lifecycle event (join, leave, recall, poke) / menu item / WebUI page action / scheduled task (`interval`, `cron`, `date`) |
 | Permissions | Who may use each command: owner, a configured list, group admins, everyone |
 | Data | What is stored, keyed by what, for how long, and what happens when it grows |
 | Output | Plain text, several messages, image, forward card, WebUI reply; sent to the current session or elsewhere |
@@ -131,7 +131,7 @@ Wrap an operation only where it can realistically fail **and** the user needs to
 | File and JSON reads/writes | `try`/`except`, report through the plugin's reply path, keep the template's `.bak` rollback behavior |
 | HTTP / OneBot API calls | `try`/`except` plus a check of the status field the documented API returns (`retcode` or equivalent) |
 | Image rendering, font loading | `try`/`except`, fall back to a default font |
-| Timer thread loop body | `try`/`except`, otherwise the thread dies silently |
+| Timer thread loop body | Prefer `scheduleAPI` for periodic work. If a leftover thread remains, `try`/`except` the loop body or it dies silently |
 | One item inside a batch | Record the failure, continue the batch, report all failures at the end |
 | Concurrency locks from the template | Keep them; do not drop a lock to "simplify" the code |
 
@@ -143,6 +143,7 @@ Wrap an operation only where it can realistically fail **and** the user needs to
 | Branches that can never be reached "just in case" | Dead code |
 | A `try` around a call that cannot fail | Obscures the real logic |
 | Comments that restate what the next line does | Noise; comment **why**, not what |
+| A plugin-owned `threading.Timer` / `while True: sleep` loop for periodic work | The loader already runs `scheduleAPI` tasks |
 
 One question decides it: **can this really fail, and do I need to know when it does?** Both yes — guard it. Otherwise write the plain call.
 
@@ -153,6 +154,7 @@ One question decides it: **can this really fail, and do I need to know when it d
 - Parse and construct messages using documented OlivOS message structures only
 - Use documented user-module APIs for user data, permissions, and isolation-sensitive behavior
 - For WebUI, register `webui_config` and ship the referenced `webui/` files; handle requests through `Event.menu` and reply with the original event's `send('webui', request_id, response)` (WebUI events have no bot context). Validate namespace and request ID, and keep within the sandbox: no direct REST calls, no host storage, no credentials. Full contract: `references/official-docs/markdown/webui.md`.
+- For scheduled work, declare `@scheduleAPI.interval` / `cron` / `date` on `main.Event` static methods (`@staticmethod` outside the decorator). Callbacks are `def name(Proc)` only — no `plugin_event`, no `app.json` event, no `timezone=`, no plugin-owned timer thread. `id` unique in the plugin namespace. Sending needs an explicit bot hash and the no-event-context helper. Requires a core that ships `scheduleAPI`. Full contract: `references/official-docs/markdown/schedule.md`.
 - For OlivaDiceCore integration, use only functions and extension points found in the OlivaDiceCore source or the referenced rule/light templates
 - OlivOS runs lower numeric priorities first: rule plugins default to `20020` so OlivaDiceCore (`20000`) handles events first, and a plugin meant to override Core goes before it. Version floors and user overrides: `references/quick-reference.md`.
 - If a requirement depends on an undocumented feature, explain the gap and provide the closest safe implementation path
@@ -186,7 +188,7 @@ Walk this list before handing files over, and fix what fails. Report the outcome
 - [ ] A plugin with no UI ships no `menu_config` / `webui_config`, and the template's `gui.py` / `webui.py` / `webui/` are deleted rather than left behind unused
 - [ ] `namespace` matches the plugin directory name exactly
 - [ ] `__init__.py` imports every extra module the plugin ships
-- [ ] `main.Event` keeps only the hooks the plugin needs, each with the `def method(plugin_event, Proc):` signature
+- [ ] `main.Event` keeps only the hooks the plugin needs. Ordinary events stay `def method(plugin_event, Proc):`; schedule callbacks stay `def method(Proc):` with `@staticmethod` outside `@scheduleAPI.*`
 - [ ] Every API, event, `plugin_event` attribute, and message structure used appears in the bundled docs or the template — nothing invented
 - [ ] Messages are built in the `message_mode` declared in `app.json` (CQ for `old_string`, OP for `olivos_string`, segments for `olivos_para`)
 - [ ] Every realistic failure (I/O, HTTP, rendering, thread loop) is guarded **and** reports to the user; no bare `except: pass`
@@ -197,6 +199,7 @@ Walk this list before handing files over, and fix what fails. Report the outcome
 - [ ] Batch or repeated actions run serially with the interval the user confirmed; nothing fans out concurrently
 - [ ] OPK scenario: bundled resources are loaded before the unpacked directory is cleaned, and runtime never reads `plugin/tmp`
 - [ ] WebUI: `webui_config` registered, namespace and request ID validated, replies use `send('webui', ...)`
+- [ ] Scheduled tasks: `scheduleAPI` not a timer thread; unique `id`; no `timezone=`; side-effectful work persists its own state so reloads do not double-run
 - [ ] `python scripts/package_opk.py <plugin-dir> --check-only` passes whenever an OPK is delivered
 - [ ] The answer states the file tree, config paths, dependencies, the license, and how the user verifies the plugin
 
@@ -222,7 +225,7 @@ Never weaken a license the dependencies force; keep an existing plugin's license
 
 ## Quick Reference
 
-Lifecycle events, the `app.json` field table (which fields may change, and when), message modes, the no-event-context send helper, and priority ordering live in `references/quick-reference.md`. Read it when the task actually touches manifests, events, or message construction — not as background.
+Lifecycle events, the `app.json` field table (which fields may change, and when), message modes, the no-event-context send helper, priority ordering, and scheduled-task declarations live in `references/quick-reference.md`. Read it when the task actually touches manifests, events, message construction, or timers — not as background.
 
 ## Required Response Format
 

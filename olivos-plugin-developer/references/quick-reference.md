@@ -12,7 +12,7 @@ save          → 插件即将被重载时触发（持久化）
 menu          → 菜单项被点击时触发（严格按优先级）
 ```
 
-所有事件回调签名：`def method_name(plugin_event, Proc):`
+所有事件回调签名：`def method_name(plugin_event, Proc):`。定时任务回调见下方，只有 `Proc`。
 
 ## app.json
 
@@ -82,3 +82,13 @@ def send_message_force(botHash, send_type, target_id, message, Proc, pluginName)
 
 OlivOS 数值越小越先执行。OlivaDiceCore 默认 `20000`；无冲突的规则插件用 `20020`，
 让 Core 先处理。想覆盖 Core 的同类命令就把优先级放到 Core 之前。
+
+## 定时任务
+
+周期或定点维护用 `OlivOS.scheduleAPI`，不要自己起线程，也不要在 `app.json` 注册。完整契约：`references/official-docs/markdown/schedule.md`。
+
+- 写在 `main.Event`：`@staticmethod` 在外，回调 `def name(Proc)`
+- `interval` / `cron` / `date`；不传 `timezone=`；`id` 在本插件命名空间内唯一
+- 全体 `init_after` 之后才注册；回调没有 `plugin_event`，发消息用上面的主动发送辅助函数
+- 需要带 `scheduleAPI` 的 OlivOS 核心；旧核心会忽略这些声明
+- 不停机补跑、不跨重载恰好一次；有副作用的操作自己持久化去重
